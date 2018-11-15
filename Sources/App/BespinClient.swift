@@ -31,8 +31,8 @@ public final class BespinClient: Service {
 
         let domain = "sandbox1ae25b0dd717479699708a4953bcec8a.mailgun.org"
         let bundle = Bundle(for: BespinClient.self)
-        let token = bundle.infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
-        let key = bundle.infoDictionary?["BESPIN_AUTH"] as? String ?? Environment.get("BESPIN_AUTH") ?? "<TOKEN>"
+        let token = Environment.get("BESPIN_TOKEN") ?? bundle.infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
+        let key = Environment.get("BESPIN_AUTH") ?? bundle.infoDictionary?["BESPIN_AUTH"] as? String ?? "<TOKEN>"
 //        let token = Bundle.main.infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
 //        let key = Bundle.main.infoDictionary?["BESPIN_AUTH"] as? String ?? Environment.get("BESPIN_AUTH") ?? "<apikey>"
         // create payload
