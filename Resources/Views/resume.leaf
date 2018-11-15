@@ -1,12 +1,15 @@
 #set("body") {
+<link href="css/resume-page.css" rel="stylesheet">
 
-
+<div class="resume">
+    
 <section id="summary" class="section scrollspy">
     
     
     <div class="container">
-        <h3 class="page-title white-text teal">Profile</h3>
-        
+        <div class="card bg-dark-card"><div class="card-header">
+        <h3 class="page-title text-white teal">Profile</h3>
+        </div>
         
         <div class="card">
             <div class="card-body">
@@ -26,7 +29,7 @@
             </div>
             
         </div>
-        
+        </div>
     </div>
     
 </section>
@@ -35,8 +38,9 @@
 
 
 <div class="container">
-    <h3 class="page-title white-text teal">Experience</h3>
-    
+    <div class="card bg-dark-card"><div class="card-header">
+    <h3 class="page-title text-white teal">Experience</h3>
+    </div>
     #for(experience in experiences) {
         <div class="card">
             <div class="card-header"><h5>#(experience.header)
@@ -59,7 +63,7 @@
         </div>
     
     }
-
+</div>
 </div>
 
 </section>
@@ -68,8 +72,9 @@
     
     
     <div class="container">
-        <h3 class="page-title white-text teal">Education</h3>
-        
+        <div class="card bg-dark-card"><div class="card-header">
+        <h3 class="page-title text-white teal">Education</h3>
+        </div>
         #for(education in educations) {
         <div class="card">
             <div class="card-body">
@@ -83,7 +88,7 @@
             </div>
         
         }
-            
+            </div>
         </div>
         
 </section>
@@ -92,7 +97,9 @@
     
     
     <div class="container">
-        <h3 class="page-title white-text teal">Skills</h3>
+        <div class="card bg-dark-card"><div class="card-header">
+        <h3 class="page-title text-white teal">Skills</h3>
+        </div>
         <div class="card-columns">
             
             #for(skill in skills) {
@@ -117,7 +124,7 @@
         
         
         </div>
-        
+        </div>
     </div>
         
 </section>
@@ -134,6 +141,6 @@
 </div>
     </section>
 
-
+</div>
 }
 #embed("base")

@@ -1,0 +1,14 @@
+.resume {
+    position: relative;
+    background-color: #343a40;
+    background: url("../img/bg-masthead.png") no-repeat center center;
+    background-size: cover;
+    padding-top: 8rem;
+    padding-bottom: 8rem;
+}
+
+.bg-dark-card {
+    background-color: rgba(76, 76, 76, 0.5) !important;
+    
+
+}
