@@ -1,0 +1,223 @@
+/*!
+ * Start Bootstrap - Landing Page v5.0.0 (https://startbootstrap.com/template-overviews/landing-page)
+ * Copyright 2013-2018 Start Bootstrap
+ * Licensed under MIT (https://github.com/BlackrockDigital/startbootstrap-landing-page/blob/master/LICENSE)
+ */
+
+body {
+  font-family: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+}
+
+header.masthead {
+  position: relative;
+  background-color: #343a40;
+  background: url("../img/bg-masthead.png") no-repeat center center;
+  background-size: cover;
+  padding-top: 8rem;
+  padding-bottom: 8rem;
+}
+
+header.masthead .overlay {
+  position: absolute;
+  background-color: #212529;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  opacity: 0.3;
+}
+
+header.masthead h1 {
+  font-size: 2rem;
+}
+
+@media (min-width: 768px) {
+  header.masthead {
+    padding-top: 12rem;
+    padding-bottom: 12rem;
+  }
+  header.masthead h1 {
+    font-size: 3rem;
+  }
+}
+
+.showcase .showcase-text {
+  padding: 3rem;
+}
+
+.showcase .showcase-img {
+  min-height: 20rem;
+  background-size: cover;
+}
+
+@media (min-width: 768px) {
+  .showcase .showcase-text {
+    padding: 7rem;
+  }
+}
+
+.features-icons {
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+}
+
+.features-icons .features-icons-item {
+  max-width: 20rem;
+}
+
+.features-icons .features-icons-item .features-icons-icon {
+  height: 7rem;
+}
+
+.features-icons .features-icons-item .features-icons-icon i {
+  font-size: 4.5rem;
+}
+
+.features-icons .features-icons-item:hover .features-icons-icon i {
+  font-size: 5rem;
+}
+
+.features-icons-item a:hover  {
+    text-decoration: none;
+}
+
+.testimonials {
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+}
+
+.testimonials .testimonial-item {
+  max-width: 18rem;
+}
+
+.testimonials .testimonial-item img {
+  max-width: 12rem;
+  -webkit-box-shadow: 0px 5px 5px 0px #adb5bd;
+  box-shadow: 0px 5px 5px 0px #adb5bd;
+}
+
+.call-to-action {
+  position: relative;
+  background-color: #343a40;
+  /*background: url("../img/bg-masthead.jpg") no-repeat center center;*/
+  background-size: cover;
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+}
+
+.call-to-action .overlay {
+  position: absolute;
+  background-color: #212529;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  opacity: 0.3;
+}
+
+footer.footer {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.hidden {
+    display: none
+}
+
+
+.typing h1{
+/*    color: lime;*/
+/*    font-family: "Courier";*/
+/*    font-size: 20px;*/
+    margin: 10px 0 0 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    animation: type 4s steps(60, end);
+}
+
+.typing h1:nth-child(2){
+    animation: type2 8s steps(60, end);
+}
+
+.typing h1 a{
+    color: lime;
+    text-decoration: none;
+}
+
+.typing span{
+    animation: blink 1s infinite;
+}
+
+@keyframes type{
+    from { width: 0; }
+}
+
+@keyframes type2{
+    0%{width: 0;}
+    50%{width: 0;}
+    100%{ width: 100; }
+}
+
+@keyframes blink{
+    to{opacity: .0;}
+}
+
+::selection{
+    background: black;
+}
+
+.bubble-container {
+    position: relative;
+    width: 100%;
+    min-height: 100%;
+    transform-style: preserve-3d;
+    
+}
+
+@keyframes move {
+    100% {
+        transform: translate3d(0, 0, -1000px);
+    }
+}
+
+.bubble-wrap {
+    margin: 0 auto;
+    width: 500px;
+    height: 500px;
+    transform-style: preserve-3d;
+    transform-origin: center center;
+    perspective: 600px;
+}
+.bubble {
+    position: absolute;
+    background: black;
+    opacity: .7;
+    border-radius: 50%;
+    animation: move 3s infinite;
+    
+}
+
+@for $i from 1 through 2 {
+    .bubble:nth-child(#{$i}){
+        $size: random(30)+px;
+        height: $size;
+        width: $size;
+        animation-delay: -$i * .2s;
+        transform: translate3d( (random(1000) * 1px),  (random(1000) * 1px), (random(2000) * 1px));
+        background: hsl( random(360) , 70%, 50%);
+    }
+    
+}
+

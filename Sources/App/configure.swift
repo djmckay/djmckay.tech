@@ -13,7 +13,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     
     /// Use Leaf for rendering views
     config.prefer(LeafRenderer.self, for: ViewRenderer.self)
-
+    services.register { container -> LeafTagConfig in
+        var config = LeafTagConfig.default()
+        config.use(PrintHTML(), as: "html")
+        return config
+    }
     /// Register middleware
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
     middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory

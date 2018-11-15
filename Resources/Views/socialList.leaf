@@ -1,0 +1,32 @@
+
+<ul class="list-inline mb-0">
+#if(social.linkedIn) {
+<li class="list-inline-item">
+<a target="_blank" href="https://www.linkedin.com/in/#(social.linkedin)">
+<i class="fab fa-linkedin fa-2x fa-fw"></i>
+</a>
+</li>
+}
+#if(social.github) {
+<li class="list-inline-item mr-3">
+<a target="_blank" href="https://github.com/#(social.github)">
+<i class="fab fa-github fa-2x fa-fw"></i>
+</a>
+</li>
+}
+#if(social.facebook) {
+<li class="list-inline-item mr-3">
+<a target="_blank" href="#(social.facebook)">
+<i class="fab fa-facebook fa-2x fa-fw"></i>
+</a>
+</li>
+}
+#if(social.twitter) {
+<li class="list-inline-item mr-3">
+<a target="_blank" href="#(social.twitter)">
+<i class="fab fa-twitter-square fa-2x fa-fw"></i>
+</a>
+</li>
+}
+
+</ul>

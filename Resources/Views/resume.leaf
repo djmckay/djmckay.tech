@@ -1,0 +1,39 @@
+#set("body") {
+
+<section id="experience" class="section scrollspy">
+
+
+<div class="container">
+    <h3 class="page-title white-text teal">Resume</h3>
+    
+    
+<div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Card title</h5>
+            <p><em class="grey-text">Summary</em></p>
+
+            <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+            
+            <h6>Develop Product</h6>
+            <ul>
+                <li>item1</li>
+            </ul>
+            <h6>Accomplishments</h6>
+            <ul>
+                <li>item 1</li>
+            </ul>
+        </div>
+        <div class="card-action"><span>Start - End  |  City, STATE</span></div>
+        
+        </div>
+<a class="btn btn-sm btn-primary" target="_blank" href="#(project.url)">
+    <span> <i class="fa fa-cloud-download-alt fa-2x fa-fw"></i> <span>Download</span></span>
+    
+    
+</a>
+</div>
+
+</section>
+
+}
+#embed("base")
