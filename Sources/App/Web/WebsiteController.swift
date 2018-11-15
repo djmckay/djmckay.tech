@@ -22,7 +22,7 @@ struct WebsiteController: RouteCollection {
         let bespin = try req.make(BespinClient.self)
         let variables = [userData.email : ["name": userData.name, "phone": userData.phone, "message": userData.message, "email": userData.email]]
         let message = Message(from: EmailAddress(email: "mailgun@sandbox1ae25b0dd717479699708a4953bcec8a.mailgun.org"), replyTo: nil, cc: nil, bcc: [EmailAddress(email: "dj.leon.mckay@gmail.com")], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: "51807F8C-0B7E-4D08-9163-120ED821CAAC")
-        _ = try bespin.send(message, on: req)
+        //_ = try bespin.send(message, on: req)
         return try indexHandler(req)
     }
     
