@@ -23,6 +23,11 @@ struct WebsiteController: RouteCollection {
         let variables = [userData.email : ["name": userData.name, "phone": userData.phone, "message": userData.message, "email": userData.email]]
         let message = Message(from: EmailAddress(email: "mailgun@sandbox1ae25b0dd717479699708a4953bcec8a.mailgun.org"), replyTo: nil, cc: nil, bcc: [EmailAddress(email: "dj.leon.mckay@gmail.com")], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: "51807F8C-0B7E-4D08-9163-120ED821CAAC")
         //_ = try bespin.send(message, on: req)
+        
+        let bundle = Bundle(for: BespinClient.self)
+        let token = Environment.get("BESPIN_TOKEN") ?? bundle.infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
+        let key = Environment.get("BESPIN_AUTH") ?? bundle.infoDictionary?["BESPIN_AUTH"] as? String ?? "<TOKEN>"
+        
         return try indexHandler(req)
     }
     
