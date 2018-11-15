@@ -23,7 +23,7 @@
 }
 #if(social.twitter) {
 <li class="list-inline-item mr-3">
-<a target="_blank" href="#(social.twitter)">
+<a target="_blank" href="https://www.twitter.com/#(social.twitter)">
 <i class="fab fa-twitter-square fa-2x fa-fw"></i>
 </a>
 </li>

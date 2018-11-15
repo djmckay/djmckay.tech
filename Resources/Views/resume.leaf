@@ -1,39 +1,139 @@
 #set("body") {
 
+
+<section id="summary" class="section scrollspy">
+    
+    
+    <div class="container">
+        <h3 class="page-title white-text teal">Profile</h3>
+        
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">#(profile.name)</h5>
+                <p><em class="grey-text">#html(profile.summary)</em></p>
+                
+                
+                <div class="card-action"><span>#(profile.action)</span></div>
+            
+            <div class="card text-white bg-secondary mb-3" style="max-width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Contact</h5>
+                    <p class="card-text">#(profile.contact.phone)</p>
+                    <p class="card-text">#(profile.contact.email)</p>
+                    <p class="card-text">#(profile.contact.address)</p>
+                </div>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+</section>
+
 <section id="experience" class="section scrollspy">
 
 
 <div class="container">
-    <h3 class="page-title white-text teal">Resume</h3>
+    <h3 class="page-title white-text teal">Experience</h3>
     
-    
-<div class="card">
-        <div class="card-body">
-            <h5 class="card-title">Card title</h5>
-            <p><em class="grey-text">Summary</em></p>
-
-            <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+    #for(experience in experiences) {
+        <div class="card">
+            <div class="card-header"><h5>#(experience.header)
+                #if(experience.current) {
+                <span class="badge badge-info">Current</span>
+                }</h5>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">#(experience.title)
+                    
+                </h5>
+                
+                <p><em class="grey-text">#html(experience.summary)</em></p>
+                
+                <p class="card-text">#html(experience.text)</p>
+                
+            </div>
+            <div class="card-action"><span>#html(experience.action)</span> <span class="badge badge-primary">#(experience.location)</span></div>
             
-            <h6>Develop Product</h6>
-            <ul>
-                <li>item1</li>
-            </ul>
-            <h6>Accomplishments</h6>
-            <ul>
-                <li>item 1</li>
-            </ul>
         </div>
-        <div class="card-action"><span>Start - End  |  City, STATE</span></div>
+    
+    }
+
+</div>
+
+</section>
+
+<section id="education" class="section scrollspy">
+    
+    
+    <div class="container">
+        <h3 class="page-title white-text teal">Education</h3>
+        
+        #for(education in educations) {
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">#(education.title)</h5>
+                <p class="card-text">
+                #html(education.text)
+                </p>
+                
+                <p class="card-text"><small class="text-muted">#(education.supportingText)</small></p>
+                
+            </div>
+        
+        }
+            
+        </div>
+        
+</section>
+
+<section id="skills" class="section scrollspy">
+    
+    
+    <div class="container">
+        <h3 class="page-title white-text teal">Skills</h3>
+        <div class="card-columns">
+            
+            #for(skill in skills) {
+            <div class="card">
+                #if(skill.image) {
+                <img class="card-img-top" src="#(skill.image)" alt="#(skill.title) image cap">
+                    }
+                    <div class="card-body">
+                        #if(skill.title) {
+                        <h5 class="card-title">#(skill.title)</h5>
+                        }
+                        #if(skill.text) {
+                        <p class="card-text">#html(skill.text)</p>
+                        }
+                        #if(skill.supportingText) {
+                        <p class="card-text"><small class="text-muted">#html(skill.supportingText)</small></p>
+                        }
+                    </div>
+                    </div>
+            
+            }
+        
         
         </div>
-<a class="btn btn-sm btn-primary" target="_blank" href="#(project.url)">
+        
+    </div>
+        
+</section>
+
+<section id="download" class="section scrollspy">
+    
+    
+    <div class="container">
+<a class="btn btn-sm btn-primary" target="_blank" href="#(url)">
     <span> <i class="fa fa-cloud-download-alt fa-2x fa-fw"></i> <span>Download</span></span>
     
     
 </a>
 </div>
+    </section>
 
-</section>
 
 }
 #embed("base")

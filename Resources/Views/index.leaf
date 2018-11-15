@@ -58,7 +58,7 @@
             <h1 class="mb-5">Welcome, My name is DJ McKay.</h1>
               </div>
 
-            <p>I'm a software engineer with a variety of backgrounds.  After years of Java consulting/development for Accenture, I have turned to freelance work.  Primarily web and mobile (iOS) apps.  Please browse my work, ongoing projects and review my resume.</p>
+            <p>I'm a software engineer with a variety of backgrounds.  After years of Java consulting/development for Accenture, I have turned to freelance work.  Primarily web and mobile (iOS) apps.  Please browse my work, ongoing projects and review my resumé.</p>
             <a href="#contact" class="btn btn-lg btn-primary">Contact me!</a>
           </div>
           <div class="col-md-10 col-lg-8 col-xl-7 mx-auto hidden">
@@ -91,8 +91,8 @@
               </div>
                 </a>
 
-              <h3>Resume</h3>
-              <p class="lead mb-0">View my <a href="resume">resume!</a></p>
+              <h3>Resumé</h3>
+              <p class="lead mb-0">View my <a href="resume">resumé!</a></p>
             </div>
           </div>
           <div class="col-lg-4">
@@ -125,9 +125,10 @@
         <div class="container-fluid p-0">
             #for(project in portfolio.projects) {
                 <div class="row no-gutters">
-                    #if(index % 2 == 0) {
-                    <div class="col-lg-6 order-lg-2 text-white showcase-img" style="background-image: url('#(project.imageURL)');"></div>
-                        <div class="col-lg-6 order-lg-1 my-auto showcase-text">
+                    #if(project.imageURL) {
+                        <div class="col-lg-6 #if(index % 2 == 0) { order-lg-2 } text-white showcase-img" style="background-image: url('#(project.imageURL)');"></div>
+                    }
+                    <div class="col-lg-6   #if(index % 2 == 0) { order-lg-1 } my-auto showcase-text">
                             <h2>#(project.name)</h2>
                             <p class="lead mb-0">#html(project.description)</p>
                             
@@ -153,36 +154,7 @@
                                 </a>
                                 }
                         </div>
-                        } else {
-                        <div class="col-lg-6 text-white showcase-img" style="background-image: url('#(project.imageURL)');"></div>
-                        <div class="col-lg-6 my-auto showcase-text">
-                            <h2>#(project.name)</h2>
-                            <p class="lead mb-0">#html(project.description)</p>
-                            
-                            #if(project.github) {
-                            <a target="_blank" href="https://github.com/#(project.github)">
-                                <i class="fab fa-github fa-2x fa-fw"></i>
-                            </a>
-                            }
-                            
-                            #if(project.url) {
-                            <a class="btn btn-sm btn-primary" target="_blank" href="#(project.url)">
-                                <span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" space="preserve" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the website</span></span>
-                                
-                                
-                            </a>
-                            }
-                            
-                            #if(project.gallery) {
-                            <a class="btn btn-sm btn-primary" target="_blank" href="#(project.url)">
-                                <span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" space="preserve" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the gallery</span></span>
-                                
-                                
-                            </a>
-                            }
-                            
-                        </div>
-                        }
+                    
                 </div>
             }
         </div>
