@@ -22,17 +22,14 @@ struct WebsiteController: RouteCollection {
         let bespin = try req.make(BespinClient.self)
         let variables = [userData.email : ["name": userData.name, "phone": userData.phone, "message": userData.message, "email": userData.email]]
         let message = Message(from: EmailAddress(email: "mailgun@sandbox1ae25b0dd717479699708a4953bcec8a.mailgun.org"), replyTo: nil, cc: nil, bcc: [EmailAddress(email: "dj.leon.mckay@gmail.com")], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: "51807F8C-0B7E-4D08-9163-120ED821CAAC")
-        //_ = try bespin.send(message, on: req)
-        
-        let token = Environment.get("BESPIN_TOKEN") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
-        let key = Environment.get("BESPIN_AUTH") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_AUTH"] as? String ?? "<TOKEN>"
+        _ = try bespin.send(message, on: req)
         
         return try indexHandler(req)
     }
     
     func indexHandler(_ req: Request) throws -> Future<View> {
         let thisSite = Project(name: "djmckay.tech", description: "My Portfolio site, djmckay.tech.  This site was built on server side <a href=\"https://swift.org/server/\">Swift</a> using <a href=\"https://vapor.codes\">Vapor</a>, deployed to <a href=\"https://vapor.cloud\">Vapor Cloud</a>.", url: "https://djmckay.tech", github: "djmckay/djmckay.tech", imageURL: "img/Artboard1.png")
-        let countdown = Project(name: "Countdown With Me", description: "iOS App serving as a reference application combining iOS, iMessage and WatchOS frameworks.", url: "https://itunes.apple.com/us/app/countdown-with-me/id1227308227?ls=1&mt=8", github: "djmckay/Countdown", imageURL: "img/Artboard1.png")
+        let countdown = Project(name: "Countdown With Me", description: "iOS App serving as a reference application combining iOS, iMessage, WatchOS and CloudKit frameworks.", url: "https://itunes.apple.com/us/app/countdown-with-me/id1227308227?ls=1&mt=8", github: "djmckay/Countdown", imageURL: "img/Artboard1.png")
         let vztuf = Project(name: "VZTUF Website", description: "Event hosting site.  Manages a yearly event by invitation only.  Registers attendees, creates invoices, receipts, fullfillment documents.  Allows attendees and exhibitors to manager attendees and their booth deliverables.  Frontend uses html, css, and javascript.  Backend is PHP and MySQL.", url: "https://www.vztuf.com", github: nil, imageURL: nil)
         
         let vztufShowManagement = Project(name: "VZTUF Show Management App", description: "iOS App built for iPads.  Allows administrators to manage the VZTUF show.  Manage attending companies and exhibiting companies.  Provides a dashboard to manage invitations, revenue, payments, vendor kit, and attendees.  Uses JSON rest servies to communicate with backend database (PHP/MySQL).  Also provides MacOS desktop version with less features.  This is a B2B distribuited application.  You may visit the gallery to see demo screenshots.", url: nil, github: nil, imageURL: nil)
