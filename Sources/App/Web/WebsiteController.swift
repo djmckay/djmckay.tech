@@ -18,7 +18,7 @@ struct WebsiteController: RouteCollection {
         router.post(ContactPostData.self, use: contactPostHandler)
         router.get("resume", use: resumeHandler)
         router.get("status") { (req) -> Future<View> in
-            return try req.view().render("status", ["database": Environment.get("DATABASE_DB") ?? "missing", "database_host": Environment.get("DATABASE_HOSTNAME") ?? "missing host", "database_user": Environment.get("DATABASE_USER")])
+            return try req.view().render("status", ["database": Environment.get("DATABASE_DB") ?? "missing", "database_host": Environment.get("DATABASE_HOSTNAME") ?? "missing host", "database_user": Environment.get("DATABASE_USER"), "configs": DJMcKayTech.DJMcKayTech.config])
         }
     }
     
