@@ -41,7 +41,8 @@ class AdminJWTMiddleWareProvider: Middleware {
             throw Abort(.unauthorized)
         }
         // parse JWT from token string, using HS-256 signer
-        let adminToken = Bundle.main.infoDictionary?["ADMIN_AUTHORIZE_KEY"] as? String ?? Environment.get("ADMIN_AUTHORIZE_KEY") ?? "secret"
+        
+        let adminToken =  Environment.get("ADMIN_AUTHORIZE_KEY") ?? Bundle(for: AdminJWTMiddleWareProvider.self).infoDictionary?["ADMIN_AUTHORIZE_KEY"] as? String ?? "secret"
         _ = try JWT<AdminToken>(from: bearer.token, verifiedUsing: .hs256(key: adminToken))
         
         return try next.respond(to: request)

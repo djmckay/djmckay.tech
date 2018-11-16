@@ -11,6 +11,10 @@ import Leaf
 
 struct ResumePage {
         static func render(_ req: Request) throws -> Future<View> {
+//            return flatMap(Profile.query(on: req).first(), Experience.query(on: req).all(), Education.query(on: req).all(), Skill.query(on: req).all(), Social.query(on: req).all()) { (profile, experiences, educations, skills, socials) -> (EventLoopFuture<View>) in
+//                let profileContext = ProfileContext(name: profile?.name ?? "", summary: profile?.summary ?? "", action: profile?.action ?? "", contact: ContactContext(phone: profile?.phone ?? "", email: profile?.email ?? "", address: profile?.address ?? ""))
+//                
+//            }
             let profile = ProfileContext(name: "David Leon McKay Jr", summary: "Over 18 years of application development on wide range of platforms from mainframe, Java EE, web and mobile platforms. Interested in leveraging different and new emerging technologies to provide customer centric solutions. Currently doing freelance work for iOS applications with or without backend web services including related web applications.", action: "", contact: ContactContext(phone: "816-294-1681", email: "djmckay@me.com", address: "511 Deer Run Way, Woodstock GA 30189"))
             
             
