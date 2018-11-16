@@ -46,7 +46,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 //        migrations.add(model: Skill.self, database: .DJMcKayTech)
 //        migrations.add(model: Education.self, database: .DJMcKayTech)
 //        migrations.add(model: Experience.self, database: .DJMcKayTech)
-        migrations.add(model: Profile.self, database: .DJMcKayTech)
+//        migrations.add(model: Profile.self, database: .DJMcKayTech)
         services.register(migrations)
 //
         var commandConfig = CommandConfig.default()
