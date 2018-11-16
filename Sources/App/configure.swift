@@ -27,34 +27,34 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     middlewares.use(LoggerMiddleware.self)
     services.register(middlewares)
     
-    if env != .production {
-        try services.register(FluentMySQLProvider())
-        var databases = DatabasesConfig()
-        if env == .testing || env == .development {
-            databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
-        } else {
-            databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
-        }
-        
-        
-        services.register(databases)
-        /// Configure migrations
-        var migrations = MigrationConfig()
-        migrations.add(model: Project.self, database: .DJMcKayTech)
-        migrations.add(model: Social.self, database: .DJMcKayTech)
-        migrations.add(model: Site.self, database: .DJMcKayTech)
-        migrations.add(model: Skill.self, database: .DJMcKayTech)
-        migrations.add(model: Education.self, database: .DJMcKayTech)
-        migrations.add(model: Experience.self, database: .DJMcKayTech)
-        migrations.add(model: Profile.self, database: .DJMcKayTech)
-        if env != .testing && env != .development {
-        }
-        services.register(migrations)
-        
-        var commandConfig = CommandConfig.default()
-        commandConfig.useFluentCommands()
-        services.register(commandConfig)
-    }
+//    if env != .production {
+//        try services.register(FluentMySQLProvider())
+//        var databases = DatabasesConfig()
+//        if env == .testing || env == .development {
+//            databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
+//        } else {
+//            databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
+//        }
+//        
+//        
+//        services.register(databases)
+//        /// Configure migrations
+//        var migrations = MigrationConfig()
+//        migrations.add(model: Project.self, database: .DJMcKayTech)
+//        migrations.add(model: Social.self, database: .DJMcKayTech)
+//        migrations.add(model: Site.self, database: .DJMcKayTech)
+//        migrations.add(model: Skill.self, database: .DJMcKayTech)
+//        migrations.add(model: Education.self, database: .DJMcKayTech)
+//        migrations.add(model: Experience.self, database: .DJMcKayTech)
+//        migrations.add(model: Profile.self, database: .DJMcKayTech)
+//        if env != .testing && env != .development {
+//        }
+//        services.register(migrations)
+//        
+//        var commandConfig = CommandConfig.default()
+//        commandConfig.useFluentCommands()
+//        services.register(commandConfig)
+//    }
     
     
 }
