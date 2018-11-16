@@ -41,7 +41,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         /// Configure migrations
         var migrations = MigrationConfig()
 //        migrations.add(model: Project.self, database: .DJMcKayTech)
-//        migrations.add(model: Social.self, database: .DJMcKayTech)
+        migrations.add(model: Social.self, database: .DJMcKayTech)
 //        migrations.add(model: Site.self, database: .DJMcKayTech)
 //        migrations.add(model: Skill.self, database: .DJMcKayTech)
 //        migrations.add(model: Education.self, database: .DJMcKayTech)
