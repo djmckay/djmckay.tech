@@ -17,6 +17,9 @@ struct WebsiteController: RouteCollection {
         router.get(use: indexHandler)
         router.post(ContactPostData.self, use: contactPostHandler)
         router.get("resume", use: resumeHandler)
+        router.get("status") { (req) -> Future<View> in
+            return try req.view().render("status", ["database": Environment.get("DATABASE_DB") ?? "missing", "database_host": Environment.get("DATABASE_HOSTNAME") ?? "missing host"])
+        }
     }
     
     func contactPostHandler(_ req: Request, userData: ContactPostData) throws -> Future<View> {
