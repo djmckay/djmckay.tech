@@ -50,11 +50,13 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         if env != .testing && env != .development {
         }
         services.register(migrations)
+        
+        var commandConfig = CommandConfig.default()
+        commandConfig.useFluentCommands()
+        services.register(commandConfig)
     }
     
-    var commandConfig = CommandConfig.default()
-    commandConfig.useFluentCommands()
-    services.register(commandConfig)
+    
 }
 
 struct DJMcKayTech {
