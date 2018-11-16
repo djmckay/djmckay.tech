@@ -5,7 +5,6 @@ import FluentMySQL
 /// Called before your application initializes.
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
     /// Register providers first
-    try services.register(FluentMySQLProvider())
     try services.register(LeafProvider())
     try services.register(BespinProvider())
     services.register(LoggerMiddleware.self)
@@ -29,6 +28,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(middlewares)
     
     if env != .production {
+        try services.register(FluentMySQLProvider())
         var databases = DatabasesConfig()
         if env == .testing || env == .development {
             databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
