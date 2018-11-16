@@ -38,7 +38,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
             print(DJMcKayTech.DJMcKayTech.config)
         }
 
-
+    
         services.register(databases)
         /// Configure migrations
         var migrations = MigrationConfig()
