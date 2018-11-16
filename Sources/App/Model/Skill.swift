@@ -38,12 +38,5 @@ final class Skill: BaseUserTrackable {
 }
 
 extension Skill: Content {}
-extension Skill: Migration {
-    static func prepare(on connection: MySQLConnection) -> Future<Void> {
-        return Database.create(self, on: connection) { builder in
-            try addProperties(to: builder)
-        }
-    }
-    
-}
+extension Skill: Migration {}
 extension Skill: Parameter {}
