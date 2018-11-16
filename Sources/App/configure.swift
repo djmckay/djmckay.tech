@@ -32,8 +32,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         var databases = DatabasesConfig()
         if env == .testing || env == .development {
             databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
+            print(DJMcKayTech.DJMcKayTechTest.config)
         } else {
             databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
+            print(DJMcKayTech.DJMcKayTech.config)
         }
 
 
@@ -43,7 +45,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 //        migrations.add(model: Project.self, database: .DJMcKayTech)
 //        migrations.add(model: Social.self, database: .DJMcKayTech)
 //        migrations.add(model: Site.self, database: .DJMcKayTech)
-        migrations.add(model: Skill.self, database: .DJMcKayTech)
+//        migrations.add(model: Skill.self, database: .DJMcKayTech)
 //        migrations.add(model: Education.self, database: .DJMcKayTech)
 //        migrations.add(model: Experience.self, database: .DJMcKayTech)
 //        migrations.add(model: Profile.self, database: .DJMcKayTech)
