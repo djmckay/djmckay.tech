@@ -30,11 +30,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     if env != .production {
         try services.register(FluentMySQLProvider())
         var databases = DatabasesConfig()
-        if env == .testing || env == .development {
-            databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
-        } else {
-            databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
-        }
+//        if env == .testing || env == .development {
+//            databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
+//        } else {
+//            databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
+//        }
         
         
         services.register(databases)
