@@ -28,8 +28,8 @@ public final class BespinClient: Service {
     
     public func send<E>(_ email: E, on worker: Worker) throws -> Future<Response> where E: Content {
         var headers: HTTPHeaders = [:]
-
-        let domain = "sandbox1ae25b0dd717479699708a4953bcec8a.mailgun.org"
+//djmckay.tech
+        let domain = "djmckay.tech"
         let token = Environment.get("BESPIN_TOKEN") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"
         let key = Environment.get("BESPIN_AUTH") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_AUTH"] as? String ?? "<TOKEN>"
 //        let token = Bundle.main.infoDictionary?["BESPIN_TOKEN"] as? String ?? Environment.get("BESPIN_TOKEN") ?? "<TOKEN>"

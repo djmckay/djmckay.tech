@@ -6,7 +6,13 @@ public func routes(_ router: Router) throws {
     //website
     let websiteController = WebsiteController()
     try router.register(collection: websiteController)
-    
+    try router.register(collection: SocialController())
+    try router.register(collection: SkillsController())
+    try router.register(collection: EducationsController())
+    try router.register(collection: ExperiencesController())
+    try router.register(collection: SitesController())
+    try router.register(collection: ProfilesController())
+    try router.register(collection: ProjectsController())
     // "It works" page
 //    router.get { req -> Future<View> in
 //        
