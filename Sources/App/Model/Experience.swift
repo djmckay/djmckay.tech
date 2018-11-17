@@ -26,8 +26,9 @@ final class Experience: BaseUserTrackable {
     var action: String
     var current: Bool
     var location: String
+    var sort: Int
     
-    init(header: String, title: String, text: String, summary: String, action: String, current: Bool, location: String) {
+    init(header: String, title: String, text: String, summary: String, action: String, current: Bool, location: String, sort: Int) {
         self.summary = summary
         self.title = title
         self.text = text
@@ -35,6 +36,7 @@ final class Experience: BaseUserTrackable {
         self.action = action
         self.current = current
         self.location = location
+        self.sort = sort
     }
         
     func convertToPublic() -> Experience {

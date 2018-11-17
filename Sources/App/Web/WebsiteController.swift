@@ -32,7 +32,7 @@ struct WebsiteController: RouteCollection {
         let message = Message(from: EmailAddress(email: from), replyTo: nil, cc: nil, bcc: [EmailAddress(email: bcc)], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: template)
         _ = try bespin.send(message, on: req)
         
-        return flatMap(Project.query(on: req).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
+        return flatMap(Project.query(on: req).sort(\.sort).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
             
             var socialContexts: [SocialContext] = []
             for social in socials {

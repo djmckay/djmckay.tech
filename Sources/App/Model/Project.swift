@@ -24,13 +24,15 @@ final class Project: BaseUserTrackable {
     var url: String?
     var github: String?
     var imageURL: String?
+    var sort: Int
     
-    init(name: String, description: String, url: String?, github: String?, imageURL: String?) {
+    init(name: String, description: String, url: String?, github: String?, imageURL: String?, sort: Int) {
         self.url = url
         self.name = name
         self.description = description
         self.github = github
         self.imageURL = imageURL
+        self.sort = sort
     }
     
     func convertToPublic() -> Project {

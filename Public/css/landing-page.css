@@ -21,7 +21,7 @@ h6 {
 header.masthead {
   position: relative;
   background-color: #343a40;
-  background: url("http://d3pkcrehufmgbl.cloudfront.net/bg-masthead.png") no-repeat center center;
+  background: url("https://s3.us-east-2.amazonaws.com/djmckay-tech/bg-masthead.png") no-repeat center center;
   background-size: cover;
   padding-top: 8rem;
   padding-bottom: 8rem;

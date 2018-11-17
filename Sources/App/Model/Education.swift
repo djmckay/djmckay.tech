@@ -23,12 +23,14 @@ final class Education: BaseUserTrackable {
     var summary: String?
     var text: String
     var supportingText: String
+    var sort: Int
     
-    init(summary: String?, title: String, text: String, supportingText: String) {
+    init(summary: String?, title: String, text: String, supportingText: String, sort: Int) {
         self.summary = summary
         self.title = title
         self.text = text
         self.supportingText = supportingText
+        self.sort = sort
     }
     
     func convertToPublic() -> Education {
