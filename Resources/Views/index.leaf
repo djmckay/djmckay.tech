@@ -1,8 +1,13 @@
 #set("body") {
 
+
+
 #if(alert) {
 <div class="alert alert-dark" role="alert">
     #(alert)
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 }
     <!-- Masthead -->
@@ -151,9 +156,9 @@
     <!-- Testimonials -->
     <section class="testimonials text-center bg-light">
       <div class="container">
-        <h2 class="mb-5">DJ McKay</h2>
+        <h2 class="mb-5">More Me!</h2>
             <div class="testimonial-item mx-auto mb-5 mb-lg-0">
-              <img class="img-fluid rounded-circle mb-3" src="img/IMG_0249.jpg" alt="">
+              <img class="img-fluid rounded-circle mb-3" src="http://d3pkcrehufmgbl.cloudfront.net/IMG_0249.jpg" alt="">
               <h5>DJ McKay</h5>
               <p class="font-weight-light mb-0">Software Engineer</p>
             </div>
