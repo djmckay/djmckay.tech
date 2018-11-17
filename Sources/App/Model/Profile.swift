@@ -25,9 +25,9 @@ final class Profile: BaseUserTrackable {
     var phone: String
     var email: String
     var address: String
-    var downloadURL: String
+    var downloadURL: String?
     
-    init(summary: String, name: String, action: String, phone: String, email: String, address: String, downloadURL: String) {
+    init(summary: String, name: String, action: String, phone: String, email: String, address: String, downloadURL: String? = nil) {
         self.summary = summary
         self.name = name
         self.action = action

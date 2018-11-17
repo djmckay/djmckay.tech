@@ -13,7 +13,6 @@ struct ProfileMigrationAddDownloadURL: Migration {
     static func prepare(on conn: MySQLConnection) -> EventLoopFuture<Void> {
         return MySQLDatabase.update(Profile.self, on: conn, closure: { (builder) in
             builder.field(for: \.downloadURL)
-            builder.field(for: \.summary, type: .longtext)
         })
     }
     

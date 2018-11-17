@@ -49,6 +49,7 @@ struct ProfilesController: TechController {
                             item.email = updatedItem.email
                             item.phone = updatedItem.phone
                             item.address = updatedItem.address
+                            item.downloadURL = updatedItem.downloadURL
                             return item.save(on: req)
         }
     }

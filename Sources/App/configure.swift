@@ -52,6 +52,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         migrations.add(model: Profile.self, database: .DJMcKayTech)
     if env != .testing {
         migrations.add(migration: SiteMigrationAddAboutHeader.self, database: .DJMcKayTech)
+        migrations.add(migration: ProfileMigrationAddDownloadURL.self, database: .DJMcKayTech)
     }
     migrations.prepareCache(for: .DJMcKayTech)
 
