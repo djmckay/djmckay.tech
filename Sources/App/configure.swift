@@ -30,8 +30,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     
 //    if env != .production {
         var databases = DatabasesConfig()
+    print(env.name)
         if env == .testing || env == .development {
             databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
+            print("testing or dev?")
             print(DJMcKayTech.DJMcKayTechTest.config)
         } else {
             databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
