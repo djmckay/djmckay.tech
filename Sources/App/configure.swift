@@ -73,6 +73,7 @@ struct DJMcKayTech {
 extension DatabaseIdentifier {
     /// Default identifier for `MySQLDatabase`.
     public static var DJMcKayTech: DatabaseIdentifier<MySQLDatabase> {
-        return .init("DJMcKayTech")
+        return .mysql
+        //return .init("DJMcKayTech")
     }
 }
