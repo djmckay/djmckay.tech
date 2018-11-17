@@ -50,12 +50,13 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         migrations.add(model: Education.self, database: .DJMcKayTech)
         migrations.add(model: Experience.self, database: .DJMcKayTech)
         migrations.add(model: Profile.self, database: .DJMcKayTech)
-    if env != .testing && env != .development {
+    if env != .testing {
         migrations.add(migration: SiteMigrationAddAboutHeader.self, database: .DJMcKayTech)
     }
+    migrations.prepareCache(for: .DJMcKayTech)
+
         services.register(migrations)
 //
-    migrations.prepareCache(for: .DJMcKayTech)
         var commandConfig = CommandConfig.default()
         commandConfig.useFluentCommands()
         services.register(commandConfig)
