@@ -47,7 +47,7 @@ struct WebsiteController: RouteCollection {
             for project in projects {
                 projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL))
             }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts))
+            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about")
             return try req.view().render("index", indexContext)
 //            let thisSite = ProjectContext(name: "djmckay.tech", description: "My Portfolio site, djmckay.tech.  This site was built on server side <a href=\"https://swift.org/server/\">Swift</a> using <a href=\"https://vapor.codes\">Vapor</a>, deployed to <a href=\"https://vapor.cloud\">Vapor Cloud</a>.", url: "https://djmckay.tech", github: "djmckay/djmckay.tech", imageURL: "img/Artboard1.png")
 //            let countdown = ProjectContext(name: "Countdown With Me", description: "iOS App serving as a reference application combining iOS, iMessage, WatchOS and CloudKit frameworks.", url: "https://itunes.apple.com/us/app/countdown-with-me/id1227308227?ls=1&mt=8", github: "djmckay/Countdown", imageURL: "img/Artboard1.png")
@@ -91,6 +91,8 @@ struct IndexContext: BaseContext {
     var socials: [SocialContext]
     var title: String
     var portfolio: PortfolioContext
+    var header: String
+    var about: String
 }
 
 struct PortfolioContext: Encodable {

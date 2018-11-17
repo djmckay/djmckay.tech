@@ -21,10 +21,14 @@ final class Site: BaseUserTrackable {
     var id: UUID?
     var brand: String
     var title: String
+    var header: String
+    var about: String
     
-    init(brand: String, title: String) {
+    init(brand: String, title: String, header: String, about: String) {
         self.brand = brand
         self.title = title
+        self.header = header
+        self.about = about
     }
     func convertToPublic() -> Site {
         return self
