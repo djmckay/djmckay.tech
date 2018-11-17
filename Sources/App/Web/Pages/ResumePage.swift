@@ -50,7 +50,7 @@ struct ResumePage {
                     educationContexts.append(EducationContext(title: education.title, summary: education.summary, text: education.text, supportingText: education.supportingText))
                 }
                 return Site.query(on: req).first().flatMap({ (site) -> EventLoopFuture<View> in
-                    let context = ResumeContext(brand: site?.brand ?? "Missing brand", socials: socialContexts, title: "Resume", profile: profileContext, experiences: exprienceContexts, educations: educationContexts, skills: skillContexts, url: "")
+                    let context = ResumeContext(brand: site?.brand ?? "Missing brand", socials: socialContexts, title: "Resume", profile: profileContext, experiences: exprienceContexts, educations: educationContexts, skills: skillContexts, url: profile?.downloadURL)
                     return try! req.make(ViewRenderer.self).render("resume", context)
                 })
                 
@@ -69,7 +69,7 @@ struct ResumeContext: BaseContext {
     var experiences: [ExperienceContext]
     var educations: [EducationContext]
     var skills: [SkillContext]
-    var url: String
+    var url: String?
 }
 
 struct ProfileContext: Encodable {

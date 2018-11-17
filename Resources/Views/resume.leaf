@@ -133,7 +133,8 @@
 
 <section id="download" class="section scrollspy">
     
-    
+    #if(url) {
+
     <div class="container">
 <a class="btn btn-sm btn-primary" target="_blank" href="#(url)">
     <span> <i class="fa fa-cloud-download-alt fa-2x fa-fw"></i> <span>Download</span></span>
@@ -141,6 +142,7 @@
     
 </a>
 </div>
+    }
     </section>
 
 

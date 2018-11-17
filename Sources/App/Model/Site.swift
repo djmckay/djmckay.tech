@@ -40,7 +40,11 @@ extension Site: Content {}
 extension Site: Migration {
     static func prepare(on connection: MySQLConnection) -> Future<Void> {
         return Database.create(self, on: connection) { builder in
-            try addProperties(to: builder)
+            builder.field(for: \.id)
+            builder.field(for: \.brand)
+            builder.field(for: \.title)
+            builder.field(for: \.header)
+            builder.field(for: \.about, type: .longtext)
         }
     }
     

@@ -47,7 +47,14 @@ extension Experience: Content {}
 extension Experience: Migration {
     static func prepare(on connection: MySQLConnection) -> Future<Void> {
         return Database.create(self, on: connection) { builder in
-            try addProperties(to: builder)
+            builder.field(for: \.id)
+            builder.field(for: \.summary, type: .longtext)
+            builder.field(for: \.title)
+            builder.field(for: \.text, type: .longtext)
+            builder.field(for: \.header)
+            builder.field(for: \.current)
+            builder.field(for: \.createdAt)
+            builder.field(for: \.updatedAt)
         }
     }
     
