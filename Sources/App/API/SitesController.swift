@@ -45,6 +45,8 @@ struct SitesController: TechController {
                            req.content.decode(T.self)) { item, updatedItem in
                             item.brand = updatedItem.brand
                             item.title = updatedItem.title
+                            item.header = updatedItem.header
+                            item.about = updatedItem.about
                             return item.save(on: req)
         }
     }
