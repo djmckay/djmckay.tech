@@ -51,7 +51,7 @@ struct WebsiteController: RouteCollection {
     
     func indexHandler(_ req: Request) throws -> Future<View> {
         
-        return flatMap(Project.query(on: req).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
+        return flatMap(Project.query(on: req).sort(\.sort).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
             
             var socialContexts: [SocialContext] = []
             for social in socials {
