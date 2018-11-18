@@ -30,7 +30,7 @@ struct WebsiteController: RouteCollection {
         let variables = [userData.email : form, bcc: form ]
         let template = Environment.get("BESPIN_TEMPLATE") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_TEMPLATE"] as? String ?? "51807F8C-0B7E-4D08-9163-120ED821CAAC"
         let message = Message(from: EmailAddress(email: from), replyTo: nil, cc: nil, bcc: [EmailAddress(email: bcc)], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: template)
-        //_ = try bespin.send(message, on: req)
+        _ = try bespin.send(message, on: req)
         
         return flatMap(Project.query(on: req).sort(\.sort).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
             
