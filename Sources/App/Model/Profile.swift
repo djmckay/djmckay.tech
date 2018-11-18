@@ -56,6 +56,7 @@ extension Profile: Migration {
             builder.field(for: \.summary, type: .longtext)
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
+            builder.field(for: \.downloadURL)
         }
     }
     
