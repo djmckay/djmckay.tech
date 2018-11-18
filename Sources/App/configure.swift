@@ -30,8 +30,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     
 //    if env != .production {
         var databases = DatabasesConfig()
+    print(env.name)
         if env == .testing || env == .development {
             databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
+            print("testing or dev?")
+            print(DJMcKayTech.DJMcKayTechTest.config)
         } else {
             databases.add(database: DJMcKayTech.DJMcKayTech, as: .DJMcKayTech)
             print(DJMcKayTech.DJMcKayTech.config)
@@ -50,9 +53,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     if env != .testing {
         //migrations.add(migration: SiteMigrationAddAboutHeader.self, database: .DJMcKayTech)
         //migrations.add(migration: ProfileMigrationAddDownloadURL.self, database: .DJMcKayTech)
-        migrations.add(migration: EducationMigrationAddSort.self, database: .DJMcKayTech)
-        migrations.add(migration: ProjectMigrationAddSort.self, database: .DJMcKayTech)
-        migrations.add(migration: ExperienceMigrationAddSort.self, database: .DJMcKayTech)
+//        migrations.add(migration: EducationMigrationAddSort.self, database: .DJMcKayTech)
+//        migrations.add(migration: ProjectMigrationAddSort.self, database: .DJMcKayTech)
+//        migrations.add(migration: ExperienceMigrationAddSort.self, database: .DJMcKayTech)
     }
     migrations.prepareCache(for: .DJMcKayTech)
 
@@ -73,7 +76,7 @@ struct DJMcKayTech {
     static let DJMcKayTechConfig = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_HOSTNAME") ?? "localhost", port: 3306, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_DB") ?? "DJMcKayTech")
     static let DJMcKayTech = MySQLDatabase(config: DJMcKayTechConfig)
     
-    static let DJMcKayTechConfigTest = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_HOSTNAME") ?? "localhost", port: 3308, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_DB") ?? "DJMcKayTech-test")
+    static let DJMcKayTechConfigTest = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_HOSTNAME") ?? "localhost", port: Int(Environment.get("DATABASE_PORT") ?? "3308") ?? 3308, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_DB") ?? "DJMcKayTech-test")
     static let DJMcKayTechTest = MySQLDatabase(config: DJMcKayTechConfigTest)
 }
 
