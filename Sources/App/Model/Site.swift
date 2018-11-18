@@ -45,6 +45,8 @@ extension Site: Migration {
             builder.field(for: \.title)
             builder.field(for: \.header)
             builder.field(for: \.about, type: .longtext)
+            builder.field(for: \.createdAt)
+            builder.field(for: \.updatedAt)
         }
     }
     

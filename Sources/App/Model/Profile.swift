@@ -54,6 +54,8 @@ extension Profile: Migration {
             builder.field(for: \.email)
             builder.field(for: \.address)
             builder.field(for: \.summary, type: .longtext)
+            builder.field(for: \.createdAt)
+            builder.field(for: \.updatedAt)
         }
     }
     
