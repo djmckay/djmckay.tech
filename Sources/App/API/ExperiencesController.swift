@@ -50,6 +50,7 @@ struct ExperiencesController: TechController {
                             item.action = updatedItem.action
                             item.current = updatedItem.current
                             item.location = updatedItem.location
+                            item.sort = updatedItem.sort
                             return item.save(on: req)
         }
     }

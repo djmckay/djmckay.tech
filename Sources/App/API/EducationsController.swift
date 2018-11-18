@@ -47,6 +47,7 @@ struct EducationsController: TechController {
                             item.supportingText = updatedItem.supportingText
                             item.title = updatedItem.title
                             item.text = updatedItem.text
+                            item.sort = updatedItem.sort
                             return item.save(on: req)
         }
     }
