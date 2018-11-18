@@ -53,6 +53,7 @@ extension Project: Migration {
             builder.field(for: \.imageURL)
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
+            builder.field(for: \.sort)
         })
     }
     

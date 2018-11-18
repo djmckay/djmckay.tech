@@ -57,6 +57,7 @@ extension Experience: Migration {
             builder.field(for: \.current)
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
+            builder.field(for: \.sort)
         }
     }
     
