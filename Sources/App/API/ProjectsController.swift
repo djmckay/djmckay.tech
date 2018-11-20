@@ -49,6 +49,7 @@ struct ProjectsController: TechController {
                             item.github = updatedItem.github
                             item.imageURL = updatedItem.imageURL
                             item.sort = updatedItem.sort
+                            item.galleryURL = updatedItem.galleryURL
                             return item.save(on: req)
         }
     }
