@@ -9,7 +9,6 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     try services.register(LeafProvider())
     try services.register(BespinProvider())
     services.register(LoggerMiddleware.self)
-
     /// Register routes to the router
     let router = EngineRouter.default()
     try routes(router)
@@ -26,6 +25,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
     middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
     middlewares.use(LoggerMiddleware.self)
+    let corsConfig = CORSMiddleware.Configuration(allowedOrigin: .all, allowedMethods: [.POST, .GET], allowedHeaders: [.contentType, .accept])
+    let coresMiddleware = CORSMiddleware(configuration: corsConfig)
+    middlewares.use(coresMiddleware)
     services.register(middlewares)
     
 //    if env != .production {
@@ -51,6 +53,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
         migrations.add(model: Experience.self, database: .DJMcKayTech)
         migrations.add(model: Profile.self, database: .DJMcKayTech)
     if env != .testing {
+        migrations.add(migration: ProjectMigrationAddGallery.self, database: .DJMcKayTech)
         //migrations.add(migration: SiteMigrationAddAboutHeader.self, database: .DJMcKayTech)
         //migrations.add(migration: ProfileMigrationAddDownloadURL.self, database: .DJMcKayTech)
 //        migrations.add(migration: EducationMigrationAddSort.self, database: .DJMcKayTech)

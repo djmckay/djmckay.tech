@@ -40,7 +40,7 @@ struct WebsiteController: RouteCollection {
             }
             var projectContexts: [ProjectContext] = []
             for project in projects {
-                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL))
+                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
             }
             let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: "Thanks for sending me a message!")
             return try req.view().render("index", indexContext)
@@ -59,7 +59,7 @@ struct WebsiteController: RouteCollection {
             }
             var projectContexts: [ProjectContext] = []
             for project in projects {
-                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL))
+                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
             }
             let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: nil)
             return try req.view().render("index", indexContext)
@@ -104,6 +104,7 @@ struct ProjectContext: Encodable {
     var url: String?
     var github: String?
     var imageURL: String?
+    var galleryURL: String?
 }
 
 struct SocialContext: Encodable {

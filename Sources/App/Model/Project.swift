@@ -25,14 +25,16 @@ final class Project: BaseUserTrackable {
     var github: String?
     var imageURL: String?
     var sort: Int
+    var galleryURL: String?
     
-    init(name: String, description: String, url: String?, github: String?, imageURL: String?, sort: Int) {
+    init(name: String, description: String, url: String?, github: String?, imageURL: String?, sort: Int, galleryURL: String) {
         self.url = url
         self.name = name
         self.description = description
         self.github = github
         self.imageURL = imageURL
         self.sort = sort
+        self.galleryURL = galleryURL
     }
     
     func convertToPublic() -> Project {
@@ -54,6 +56,7 @@ extension Project: Migration {
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
             builder.field(for: \.sort)
+            builder.field(for: \.galleryURL)
         })
     }
     
