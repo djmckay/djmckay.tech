@@ -112,7 +112,7 @@
                 <img class="card-img-top img-fluid img-thumbnail rounded mx-auto d-block" src="#(skill.image)" alt="#(skill.title) image cap" style="max-width: 10rem;">
                     }
                     <div class="card-body">
-                        #if(skill.title && !skill.image) {
+                        #if(skill.title && skill.image == nil) {
                         <h5 class="card-title">#(skill.title)</h5>
                         }
                         #if(skill.text) {
