@@ -42,7 +42,7 @@ struct WebsiteController: RouteCollection {
             for project in projects {
                 projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
             }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: "Thanks for sending me a message!")
+            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: "Thanks for sending me a message!", avatar: site?.avatar, avatarByLine: site?.avatarByLine)
             return try req.view().render("index", indexContext)
             
             
@@ -61,7 +61,7 @@ struct WebsiteController: RouteCollection {
             for project in projects {
                 projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
             }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: nil)
+            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: nil, avatar: site?.avatar, avatarByLine: site?.avatarByLine)
             return try req.view().render("index", indexContext)
 
             
@@ -91,6 +91,8 @@ struct IndexContext: BaseContext {
     var header: String
     var about: String
     var alert: String?
+    var avatar: String?
+    var avatarByLine: String?
 }
 
 struct PortfolioContext: Encodable {

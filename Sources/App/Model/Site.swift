@@ -23,12 +23,16 @@ final class Site: BaseUserTrackable {
     var title: String
     var header: String
     var about: String
+    var avatar: String?
+    var avatarByLine: String?
     
-    init(brand: String, title: String, header: String, about: String) {
+    init(brand: String, title: String, header: String, about: String, avatar: String, avatarByLine: String) {
         self.brand = brand
         self.title = title
         self.header = header
         self.about = about
+        self.avatar = avatar
+        self.avatarByLine = avatarByLine
     }
     func convertToPublic() -> Site {
         return self
@@ -47,6 +51,8 @@ extension Site: Migration {
             builder.field(for: \.about, type: .longtext)
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
+            builder.field(for: \.avatar)
+            builder.field(for: \.avatarByLine)
         }
     }
     

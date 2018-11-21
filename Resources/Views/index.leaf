@@ -159,9 +159,9 @@
       <div class="container">
         <h2 class="mb-5">More Me!</h2>
             <div class="testimonial-item mx-auto mb-5 mb-lg-0">
-              <img class="img-fluid rounded-circle mb-3" src="https://s3.us-east-2.amazonaws.com/djmckay-tech/IMG_0249.jpg" alt="">
-              <h5>DJ McKay</h5>
-              <p class="font-weight-light mb-0">Software Engineer</p>
+<img class="img-fluid rounded-circle mb-3" src="#(avatar)" alt="">
+<h5>#(brand)</h5>
+              <p class="font-weight-light mb-0">#(avatarByLine)</p>
             </div>
       </div>
     </section>

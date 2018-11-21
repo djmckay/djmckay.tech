@@ -27,8 +27,9 @@ final class Experience: BaseUserTrackable {
     var current: Bool
     var location: String
     var sort: Int
+    var url: String?
     
-    init(header: String, title: String, text: String, summary: String, action: String, current: Bool, location: String, sort: Int) {
+    init(header: String, title: String, text: String, summary: String, action: String, current: Bool, location: String, sort: Int, url: String? = nil) {
         self.summary = summary
         self.title = title
         self.text = text
@@ -37,6 +38,7 @@ final class Experience: BaseUserTrackable {
         self.current = current
         self.location = location
         self.sort = sort
+        self.url = url
     }
         
     func convertToPublic() -> Experience {
@@ -58,6 +60,7 @@ extension Experience: Migration {
             builder.field(for: \.createdAt)
             builder.field(for: \.updatedAt)
             builder.field(for: \.sort)
+            builder.field(for: \.url)
         }
     }
     

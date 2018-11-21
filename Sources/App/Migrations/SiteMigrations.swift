@@ -25,3 +25,23 @@ struct SiteMigrationAddAboutHeader: Migration {
     
     
 }
+
+struct SiteMigrationAddAvatar: Migration {
+    static func prepare(on conn: MySQLConnection) -> EventLoopFuture<Void> {
+        return MySQLDatabase.update(Site.self, on: conn, closure: { (builder) in
+            builder.field(for: \.avatar)
+            builder.field(for: \.avatarByLine)
+        })
+    }
+    
+    static func revert(on conn: MySQLConnection) -> EventLoopFuture<Void> {
+        return MySQLDatabase.update(Site.self, on: conn, closure: { (builder) in
+            builder.deleteField(for: \.avatar)
+            builder.deleteField(for: \.avatarByLine)
+        })
+    }
+    
+    typealias Database = MySQLDatabase
+    
+    
+}

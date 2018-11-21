@@ -93,6 +93,11 @@
 
 #get(body)
 
+<footer id="cookie-footer">
+<div id="cookieMessage" class="container"><span class="muted">This site uses cookies! To accept this, click <a href="#" onclick="cookiesConfirmed()">OK</a></span></div>
+</footer>
+<script src="/scripts/cookies.js"></script>
+
 <!-- Footer -->
 <footer class="footer bg-dark">
 <div class="container">

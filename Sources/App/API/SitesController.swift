@@ -47,6 +47,8 @@ struct SitesController: TechController {
                             item.title = updatedItem.title
                             item.header = updatedItem.header
                             item.about = updatedItem.about
+                            item.avatarByLine = updatedItem.avatarByLine
+                            item.avatar = updatedItem.avatar
                             return item.save(on: req)
         }
     }

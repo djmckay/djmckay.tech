@@ -49,7 +49,18 @@
             <div class="card-header"><h5>#(experience.header)
                 #if(experience.current) {
                 <span class="badge badge-info">Current</span>
-                }</h5>
+                }
+#if(experience.url) {
+<a class="btn btn-sm btn-primary float-right" target="_blank" href="#(experience.url)">
+<span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" space="preserve" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the website</span></span>
+
+
+</a>
+}
+</h5>
+
+
+
             </div>
             <div class="card-body">
                 <h5 class="card-title">#(experience.title)
@@ -101,7 +112,7 @@
     
     <div class="container">
         <div class="card bg-dark-card"><div class="card-header">
-        <h3 class="page-title text-white teal">Skills</h3>
+        <h3 class="page-title text-white teal">Technology Summary</h3>
         </div>
         <div class="card-columns">
             
@@ -112,7 +123,7 @@
                 <img class="card-img-top img-fluid img-thumbnail rounded mx-auto d-block" src="#(skill.image)" alt="#(skill.title) image cap" style="max-width: 10rem;">
                     }
                     <div class="card-body">
-                        #if(skill.title && skill.image == nil) {
+                        #if(skill.title) {
                         <h5 class="card-title">#(skill.title)</h5>
                         }
                         #if(skill.text) {
