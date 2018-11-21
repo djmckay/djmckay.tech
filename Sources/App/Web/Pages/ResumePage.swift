@@ -29,12 +29,11 @@ struct ResumePage {
 
             var educationContexts = [EducationContext(title: "Missouri Western State University", summary: nil, text: "Bachelor's degree, Mathematics and Computer Science · 1999", supportingText: "Saint Joseph, MO")]
             
-            var skillContexts = [SkillContext(image: nil, title: "Swift", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "XCode", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "MySQL", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "PHP", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "HTML", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "CSS", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Java", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Javascript", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Github", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Selenium", text: nil, supportingText: "2017"), SkillContext(image: nil, title: "RESTful services", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Bootstrap", text: nil, supportingText: "2018"),
-                          SkillContext(image: nil, title: "Hibernate", text: nil, supportingText: "2017"), SkillContext(image: nil, title: "Objective-C", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Mobile App Development", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "iOS App", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "JSON", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Photoshop", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "Dreamweaver", text: nil, supportingText: "2018"), SkillContext(image: nil, title: "JWT/Authentication", text: nil, supportingText: "2018")]
+            var skillContexts: [SkillContext] = []
             
             return flatMap(Skill.query(on: req).sort(\.title).all(), Experience.query(on: req).sort(\.sort).all(), Social.query(on: req).all(), Profile.query(on: req).first(), Education.query(on: req).sort(\.sort).all()) { (skills, experiences, socials, profile, educations) -> (EventLoopFuture<View>) in
                 for skill in skills {
-                    skillContexts.append(SkillContext(image: nil, title: skill.title, text: skill.text, supportingText: skill.supportingText))
+                    skillContexts.append(SkillContext(image: skill.image, title: skill.title, text: skill.text, supportingText: skill.supportingText))
                 }
                 for experience in experiences {
                     exprienceContexts.append(ExperienceContext(header: experience.header, title: experience.title, summary: experience.summary, text: experience.text, action: experience.action, current: experience.current, location: experience.location))
