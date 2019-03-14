@@ -89,6 +89,9 @@
 
     <!-- Image Showcases -->
     <section class="showcase">
+<header class="text-center">
+<h2 class="mb-5">portfolio</h2>
+</header>
         <div class="container-fluid p-0">
             #for(project in portfolio.projects) {
                 <div class="row no-gutters">
@@ -225,4 +228,7 @@
 
 }
 
+#set("style") {
+<link href="css/landing-page.css" rel="stylesheet">
+}
 #embed("base")

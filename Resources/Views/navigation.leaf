@@ -1,0 +1,10 @@
+<!-- Navigation -->
+<nav class="navbar navbar-lightstatic-top bg-dark">
+<div class="container">
+<a class="navbar-brand" href="/">#(brand)</a>
+<div class="col-lg-6 h-100 text-center text-lg-right my-auto">
+#embed("socialList")
+</div>
+<a class="btn btn-primary hidden" href="#">Sign In</a>
+</div>
+</nav>
