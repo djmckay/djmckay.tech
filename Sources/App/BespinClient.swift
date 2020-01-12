@@ -11,7 +11,7 @@ import JWT
 public final class BespinClient: Service {
     let httpClient: Client
     //    let apiKey: String
-    let apiEndpoint = "https://bespin-mail-api.vapor.cloud/api/"
+    let apiEndpoint = Environment.get("BESPIN_API_URL") ?? "https://djmckay-tech-bespin.herokuapp.com/api/"
     //    public let domain: String
     
     //    public init(client: Client, apiKey: String, domain: String) {
