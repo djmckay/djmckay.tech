@@ -23,15 +23,19 @@ struct WebsiteController: RouteCollection {
     }
     
     func contactPostHandler(_ req: Request, userData: ContactPostData) throws -> Future<View> {
+    
         let bespin = try req.make(BespinClient.self)
         let form = ["name": userData.name, "phone": userData.phone, "message": userData.message, "email": userData.email]
-        let bcc = Environment.get("BESPIN_BCC") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_BCC"] as? String ?? "<email>"
-        let from = Environment.get("BESPIN_FROM") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_FROM"] as? String ?? "<email>"
-        let variables = [userData.email : form, bcc: form ]
-        let template = Environment.get("BESPIN_TEMPLATE") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_TEMPLATE"] as? String ?? "51807F8C-0B7E-4D08-9163-120ED821CAAC"
-        let message = Message(from: EmailAddress(email: from), replyTo: nil, cc: nil, bcc: [EmailAddress(email: bcc)], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: template)
-        _ = try bespin.send(message, on: req)
-        
+        var alert = "Are you a spambot?"
+        if userData.spam == nil || userData.spam == "4" {
+            alert = "Thanks for sending me a message!"
+            let bcc = Environment.get("BESPIN_BCC") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_BCC"] as? String ?? "<email>"
+            let from = Environment.get("BESPIN_FROM") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_FROM"] as? String ?? "<email>"
+            let variables = [userData.email : form, bcc: form ]
+            let template = Environment.get("BESPIN_TEMPLATE") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_TEMPLATE"] as? String ?? "51807F8C-0B7E-4D08-9163-120ED821CAAC"
+            let message = Message(from: EmailAddress(email: from), replyTo: nil, cc: nil, bcc: [EmailAddress(email: bcc)], to: [EmailAddress(email: userData.email)], text: nil, html: nil, subject: nil, recipientVariables: variables, template: template)
+            _ = try bespin.send(message, on: req)
+        }
         return flatMap(Project.query(on: req).sort(\.sort).all(), Site.query(on: req).first(), Social.query(on: req).all()) { (projects, site, socials) -> (EventLoopFuture<View>) in
             
             var socialContexts: [SocialContext] = []
@@ -42,7 +46,7 @@ struct WebsiteController: RouteCollection {
             for project in projects {
                 projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
             }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: "Thanks for sending me a message!", avatar: site?.avatar, avatarByLine: site?.avatarByLine)
+            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: alert, avatar: site?.avatar, avatarByLine: site?.avatarByLine)
             return try req.view().render("index", indexContext)
             
             
@@ -120,6 +124,7 @@ struct ContactPostData: Content {
     let email: String
     let phone: String
     let message: String
+    let spam: String?
 }
 
 

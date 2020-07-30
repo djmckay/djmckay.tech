@@ -38,6 +38,10 @@
                         </div>
                     </div>
                     <br>
+                    <div class="hide">
+                        <label for="spam">What is two plus two?</label>
+                        <input name="spam" type="text" size="4" id="spam">
+                    </div>
                     <div id="success"></div>
                     <div class="form-group">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
