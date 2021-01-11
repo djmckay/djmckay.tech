@@ -40,7 +40,6 @@ gtag('config', 'UA-135779992-2');
 <!-- Navigation -->
 #embed("navigation")
 
-#embed("contactMeForm")
 
 #get(body)
 
