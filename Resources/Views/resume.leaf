@@ -19,7 +19,7 @@
                 
                 <div class="card-action"><span>#(profile.action)</span></div>
             
-                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#exampleModal">Contact me!</button>
+                    <button type="button" class="hide btn btn-primary" data-toggle="modal" data-target="#exampleModal">Contact me!</button>
 
                 <div class="card-body hidden">
                     <h5 class="card-title">Contact</h5>

@@ -26,7 +26,7 @@
               </div>
 
               <p>#(about)</p>
-            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#exampleModal">Contact me!</button>
+            <button type="button" class="hide btn btn-primary" data-toggle="modal" data-target="#exampleModal">Contact me!</button>
           </div>
           <div class="col-md-10 col-lg-8 col-xl-7 mx-auto hidden">
             <form>
