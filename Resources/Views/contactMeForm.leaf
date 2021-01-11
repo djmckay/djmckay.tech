@@ -38,7 +38,7 @@
                         </div>
                     </div>
                     <br>
-                    <div class="hide">
+                    <div class="">
                         <label for="spam">What is two plus two?</label>
                         <input name="spam" type="text" size="4" id="spam" required="required">
                     </div>
