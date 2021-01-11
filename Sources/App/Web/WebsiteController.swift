@@ -27,7 +27,7 @@ struct WebsiteController: RouteCollection {
         let bespin = try req.make(BespinClient.self)
         let form = ["name": userData.name, "phone": userData.phone, "message": userData.message, "email": userData.email]
         var alert = "Are you a spambot?"
-        if userData.spam.isEmpty || userData.spam == "4" || userData.spam.lowercased() == "four" {
+        if userData.spam == "4" || userData.spam.lowercased() == "four" {
             alert = "Thanks for sending me a message!"
             let bcc = Environment.get("BESPIN_BCC") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_BCC"] as? String ?? "<email>"
             let from = Environment.get("BESPIN_FROM") ?? Bundle(for: BespinClient.self).infoDictionary?["BESPIN_FROM"] as? String ?? "<email>"
