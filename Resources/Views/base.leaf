@@ -9,14 +9,14 @@
 <meta name="author" content="">
 <meta name="google-site-verification" content="viU2jfxgOldUbjgZjvQMtEYYGTRoOIf5gtI8NykA4Jk" />
 
-<!-- Global site tag (gtag.js) - Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=UA-135779992-2"></script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4R2KQWC45Z"></script>
 <script>
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-gtag('config', 'UA-135779992-2');
+  gtag('config', 'G-4R2KQWC45Z');
 </script>
 
 
