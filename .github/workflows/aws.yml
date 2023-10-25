@@ -32,7 +32,7 @@ on:
 
 env:
   AWS_REGION: us-east-1                   # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: 795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech
+  ECR_REPOSITORY: djmckay-tech
            # set this to your Amazon ECR repository name
   ECS_SERVICE: djmckay-tech-app-service                 # set this to your Amazon ECS service name
   ECS_CLUSTER: djmckay-tech-cluster                 # set this to your Amazon ECS cluster name
