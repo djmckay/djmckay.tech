@@ -75,16 +75,10 @@ jobs:
         # push it to ECR so that it can
         # be deployed to ECS.
         docker build \
-          --build-arg SIWA_ID=${{ secrets.SIWA_ID }} \ 
-          --build-arg SIWA_REDIRECT_URL=${{ secrets.SIWA_REDIRECT_URL }} \
-          --build-arg SIWA_JWK_ID=${{ secrets.SIWA_JWK_ID }} \
-          --build-arg SIWA_PRIVATE_KEY=${{ secrets.SIWA_PRIVATE_KEY }} \
-          --build-arg SIWA_TEAM_ID=${{ secrets.SIWA_TEAM_ID }} \
-          --build-arg SIWA_APP_BUNDLE_ID=${{ secrets.SIWA_APP_BUNDLE_ID }} \
           --build-arg DATABASE_AWS_HOSTNAME=${{ secrets.DATABASE_AWS_HOSTNAME }} \ 
           --build-arg DATABASE_AWS_USER=${{ secrets.DATABASE_AWS_USER }} \
           --build-arg DATABASE_AWS_PASSWORD=${{ secrets.DATABASE_AWS_PASSWORD }} \
-          --build-arg AWS_RDS_DB=${{ secrets.AWS_RDS_DB }} \
+          --build-arg DATABASE_AWS_DB=${{ secrets.DATABASE_AWS_DB }} \
           -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
