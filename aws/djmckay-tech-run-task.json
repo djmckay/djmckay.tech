@@ -1,0 +1,62 @@
+{
+    "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task:1",
+    "containerDefinitions": [
+        {
+            "name": "djmckay-tech-app",
+            "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:b6e6ece32781225855089d364940fb98cd8cd8e4",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "name": "djmckay-tech-app-8080-tcp",
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "ulimits": []
+        }
+    ],
+    "family": "djmckay-tech-run-task",
+    "executionRoleArn": "arn:aws:iam::795091308067:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "revision": 1,
+    "volumes": [],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "3072",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "registeredAt": "2023-10-26T17:31:04.926Z",
+    "registeredBy": "arn:aws:iam::795091308067:user/dj",
+    "tags": []
+}
