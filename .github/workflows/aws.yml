@@ -82,7 +82,6 @@ jobs:
           --build-arg SIWA_TEAM_ID=${{ secrets.SIWA_TEAM_ID }} \
           --build-arg SIWA_APP_BUNDLE_ID=${{ secrets.SIWA_APP_BUNDLE_ID }} \
           --build-arg DATABASE_AWS_HOSTNAME=${{ secrets.DATABASE_AWS_HOSTNAME }} \ 
-          # --build-arg AWS_RDS_PORT=${{ secrets.AWS_RDS_PORT }} \
           --build-arg DATABASE_AWS_USER=${{ secrets.DATABASE_AWS_USER }} \
           --build-arg DATABASE_AWS_PASSWORD=${{ secrets.DATABASE_AWS_PASSWORD }} \
           --build-arg AWS_RDS_DB=${{ secrets.AWS_RDS_DB }} \
