@@ -64,7 +64,7 @@
   ],
   "placementConstraints": [],
   "memory": "2048",
-  "taskRoleArn": "arn:aws:iam::795091308067:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+  "taskRoleArn": null,
   "compatibilities": [
     "EC2",
     "FARGATE"
