@@ -14,10 +14,7 @@
           "awslogs-stream-prefix": "ecs"
         }
       },
-      "entryPoint": [
-        "sh",
-        "-c"
-      ],
+      "entryPoint": [],
       "portMappings": [
         {
           "hostPort": 80,
@@ -30,9 +27,9 @@
           "containerPort": 8080
         }
       ],
-      "command": null,
+      "command": [],
       "linuxParameters": null,
-      "cpu": 256,
+      "cpu": 0,
       "environment": [],
       "resourceRequirements": null,
       "ulimits": null,
@@ -42,10 +39,10 @@
       "secrets": null,
       "dockerSecurityOptions": null,
       "memory": null,
-      "memoryReservation": 512,
+      "memoryReservation": null,
       "volumesFrom": [],
       "stopTimeout": null,
-      "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:e0ccdfba14ac5afb9f95207f49e9eb0f5dbc36d9",
+      "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:latest",
       "startTimeout": null,
       "firelensConfiguration": null,
       "dependsOn": null,
@@ -62,17 +59,17 @@
       "dockerLabels": null,
       "systemControls": null,
       "privileged": null,
-      "name": "djmckay-tech-app"
+      "name": "djmckay-tech"
     }
   ],
   "placementConstraints": [],
-  "memory": "512",
-  "taskRoleArn": null,
+  "memory": "2048",
+  "taskRoleArn": "arn:aws:iam::795091308067:role/ecsTaskExecutionRole",
   "compatibilities": [
     "EC2",
     "FARGATE"
   ],
-  "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:2",
+  "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:11",
   "family": "djmckay-tech-run-task-definition",
   "requiresAttributes": [
     {
@@ -103,7 +100,7 @@
       "targetId": null,
       "targetType": null,
       "value": null,
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.21"
+      "name": "com.amazonaws.ecs.capability.task-iam-role"
     },
     {
       "targetId": null,
@@ -129,11 +126,24 @@
     "FARGATE"
   ],
   "networkMode": "awsvpc",
-  "runtimePlatform": null,
-  "cpu": "256",
-  "revision": 2,
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": null
+  },
+  "cpu": "1024",
+  "revision": 11,
   "status": "ACTIVE",
   "inferenceAccelerators": null,
   "proxyConfiguration": null,
-  "volumes": []
+  "volumes": [
+    {
+      "fsxWindowsFileServerVolumeConfiguration": null,
+      "efsVolumeConfiguration": null,
+      "name": "djmckay-tech-volume",
+      "host": {
+        "sourcePath": null
+      },
+      "dockerVolumeConfiguration": null
+    }
+  ]
 }
