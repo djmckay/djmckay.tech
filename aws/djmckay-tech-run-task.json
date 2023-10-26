@@ -1,5 +1,5 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task:1",
+    "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:1",
     "containerDefinitions": [
         {
             "name": "djmckay-tech-app",
@@ -22,7 +22,7 @@
             "ulimits": []
         }
     ],
-    "family": "djmckay-tech-run-task",
+    "family": "djmckay-tech-run-task-definition",
     "executionRoleArn": "arn:aws:iam::795091308067:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
     "revision": 1,
