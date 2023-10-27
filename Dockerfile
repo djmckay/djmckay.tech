@@ -58,6 +58,10 @@ USER root
 
 # Export Port
 EXPOSE 8080
-ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080
+ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080 \
+-e DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME} \ 
+-e DATABASE_AWS_USER=${DATABASE_AWS_USER} \ 
+-e DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD} \ 
+-e DATABASE_AWS_DB=${DATABASE_AWS_DB} 
 # ENTRYPOINT ["./Run"]
 # CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
