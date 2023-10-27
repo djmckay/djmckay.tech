@@ -32,7 +32,7 @@
             "secrets": [{
               "name": "DATABASE_AWS_PASSWORD",
               "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:djmckaytech-DATABASE_AWS_PASSWORD"
-            }]
+            }],
             "mountPoints": [],
             "volumesFrom": [],
             "logConfiguration": {
