@@ -48,11 +48,11 @@ RUN echo "SIWA_PRIVATE_KEY=${SIWA_PRIVATE_KEY}" >> .env.production
 RUN echo "SIWA_TEAM_ID=${SIWA_TEAM_ID}" >> .env.production
 RUN echo "SIWA_APP_BUNDLE_ID=${SIWA_APP_BUNDLE_ID}" >> .env.production
 
-RUN echo "DB_HOST=${DATABASE_AWS_HOSTNAME}" >> .env.production
+RUN echo "DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME}" >> .env.production
 # RUN echo "DB_PORT=${AWS_RDS_PORT}" >> .env.production
-RUN echo "DB_USER=${DATABASE_AWS_USER}" >> .env.production
-RUN echo "DB_PASS=${DATABASE_AWS_PASSWORD}" >> .env.production
-RUN echo "DB_NAME=${DATABASE_AWS_DB}" >> .env.production
+RUN echo "DATABASE_AWS_USER=${DATABASE_AWS_USER}" >> .env.production
+RUN echo "DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD}" >> .env.production
+RUN echo "DATABASE_AWS_DB=${DATABASE_AWS_DB}" >> .env.production
 
 USER root
 
