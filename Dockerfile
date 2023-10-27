@@ -61,13 +61,11 @@ RUN echo "DATABASE_AWS_PASSWORD=$DATABASE_AWS_PASSWORD" >> .env.production
 RUN echo "DATABASE_AWS_DB=$DATABASE_AWS_DB" >> .env.production
 
 USER root
-environment:
-      - DATABASE_AWS_HOSTNAME=$DATABASE_AWS_HOSTNAME
       
 # Export Port
 EXPOSE 8080
 ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080 \
--e "DATABASE_AWS_HOSTNAME=$DATABASE_AWS_HOSTNAME" \ 
+-e "DATABASE_AWS_HOSTNAME=djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com" \ 
 -e "DATABASE_AWS_USER=$DATABASE_AWS_USER" \ 
 -e "DATABASE_AWS_PASSWORD=$DATABASE_AWS_PASSWORD" \ 
 -e "DATABASE_AWS_DB=$DATABASE_AWS_DB" 
