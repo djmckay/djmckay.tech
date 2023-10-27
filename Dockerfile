@@ -4,17 +4,13 @@ FROM swift:4.2 as builder
 # For local build, add `--build-arg environment=local`
 ARG env=""
 # ARS RDS Environment ARG
-ARG DATABASE_AWS_HOSTNAME=""
+ARG DATABASE_AWS_HOSTNAME
 # ARG AWS_RDS_PORT
-ARG DATABASE_AWS_USER=""
-ARG DATABASE_AWS_PASSWORD=""
-ARG DATABASE_AWS_DB=""
+ARG DATABASE_AWS_USER
+ARG DATABASE_AWS_PASSWORD
+ARG DATABASE_AWS_DB
 
 ENV ENVIRONMENT=$env
-ENV DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME)
-ENV DATABASE_AWS_USER=${DATABASE_AWS_USER)
-ENV DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD)
-ENV DATABASE_AWS_DB=${DATABASE_AWS_DB}
 
 RUN apt-get -qq update && apt-get -q -y install \
   tzdata \
@@ -54,20 +50,16 @@ RUN echo "SIWA_PRIVATE_KEY=${SIWA_PRIVATE_KEY}" >> .env.production
 RUN echo "SIWA_TEAM_ID=${SIWA_TEAM_ID}" >> .env.production
 RUN echo "SIWA_APP_BUNDLE_ID=${SIWA_APP_BUNDLE_ID}" >> .env.production
 
-RUN echo "DATABASE_AWS_HOSTNAME=$DATABASE_AWS_HOSTNAME" >> .env.production
+RUN echo "DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME}" >> .env.production
 # RUN echo "DB_PORT=${AWS_RDS_PORT}" >> .env.production
-RUN echo "DATABASE_AWS_USER=$DATABASE_AWS_USER" >> .env.production
-RUN echo "DATABASE_AWS_PASSWORD=$DATABASE_AWS_PASSWORD" >> .env.production
-RUN echo "DATABASE_AWS_DB=$DATABASE_AWS_DB" >> .env.production
+RUN echo "DATABASE_AWS_USER=${DATABASE_AWS_USER}" >> .env.production
+RUN echo "DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD}" >> .env.production
+RUN echo "DATABASE_AWS_DB=${DATABASE_AWS_DB}" >> .env.production
 
 USER root
       
 # Export Port
 EXPOSE 8080
-ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080 \
--e "DATABASE_AWS_HOSTNAME=djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com" \ 
--e "DATABASE_AWS_USER=$DATABASE_AWS_USER" \ 
--e "DATABASE_AWS_PASSWORD=$DATABASE_AWS_PASSWORD" \ 
--e "DATABASE_AWS_DB=$DATABASE_AWS_DB" 
+ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080 
 # ENTRYPOINT ["./Run"]
 # CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
