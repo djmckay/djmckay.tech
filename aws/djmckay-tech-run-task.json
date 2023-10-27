@@ -1,13 +1,13 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:1",
+    "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:25",
     "containerDefinitions": [
         {
             "name": "djmckay-tech",
-            "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:b6e6ece32781225855089d364940fb98cd8cd8e4",
+            "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:2eaae8ab152f6394a27f2b643fdf880ef4d95a97",
             "cpu": 0,
             "portMappings": [
                 {
-                    "name": "djmckay-tech-app-8080-tcp",
+                    "name": "djmckay-tech-8080-tcp",
                     "containerPort": 8080,
                     "hostPort": 8080,
                     "protocol": "tcp",
@@ -16,16 +16,24 @@
             ],
             "essential": true,
             "environment": [],
-            "environmentFiles": [],
             "mountPoints": [],
             "volumesFrom": [],
-            "ulimits": []
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/djmckay-tech-run-task-definition",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            }
         }
     ],
     "family": "djmckay-tech-run-task-definition",
     "executionRoleArn": "arn:aws:iam::795091308067:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
-    "revision": 1,
+    "revision": 25,
     "volumes": [],
     "status": "ACTIVE",
     "requiresAttributes": [
@@ -65,10 +73,10 @@
     "cpu": "1024",
     "memory": "3072",
     "runtimePlatform": {
-        "cpuArchitecture": "X86_64",
+        "cpuArchitecture": "ARM64",
         "operatingSystemFamily": "LINUX"
     },
-    "registeredAt": "2023-10-26T17:31:04.926Z",
+    "registeredAt": "2023-10-27T02:10:20.069Z",
     "registeredBy": "arn:aws:iam::795091308067:user/dj",
     "tags": []
 }
