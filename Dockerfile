@@ -54,7 +54,7 @@ RUN echo "DB_USER=${DATABASE_AWS_USER}" >> .env.production
 RUN echo "DB_PASS=${DATABASE_AWS_PASSWORD}" >> .env.production
 RUN echo "DB_NAME=${DATABASE_AWS_DB}" >> .env.production
 
-USER vapor
+USER root
 
 # Export Port
 EXPOSE 8080
