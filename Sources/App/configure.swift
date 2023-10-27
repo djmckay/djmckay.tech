@@ -33,6 +33,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 //    if env != .production {
         var databases = DatabasesConfig()
     print(env.name)
+    print(env)
+        print(Environment.get("DATABASE_AWS_HOSTNAME"))
+
         if env == .testing || env == .development {
             databases.add(database: DJMcKayTech.DJMcKayTechTest, as: .DJMcKayTech)
             print("testing or dev?")
