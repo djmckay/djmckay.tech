@@ -62,7 +62,6 @@ RUN echo "DATABASE_AWS_DB=${DATABASE_AWS_DB}" >> .env.production
 
 USER root
 
-  -
 # Export Port
 EXPOSE 8080
 ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080 
