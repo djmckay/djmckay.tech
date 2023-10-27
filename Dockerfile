@@ -58,6 +58,6 @@ USER root
 
 # Export Port
 EXPOSE 8080
-
-ENTRYPOINT ["./Run"]
-CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ./Run serve --env $ENVIRONMENT --hostname 0.0.0.0 --port 8080
+# ENTRYPOINT ["./Run"]
+# CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
