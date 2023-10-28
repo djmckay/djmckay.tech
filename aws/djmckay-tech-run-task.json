@@ -32,6 +32,10 @@
             "secrets": [{
               "name": "DATABASE_AWS_PASSWORD",
               "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:djmckaytech-DATABASE_PASSWORD-1SiFYM"
+            },
+            {
+              "name": "ADMIN_AUTHORIZE_KEY",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:ADMIN_AUTHORIZE_KEY-EXoEQI"
             }],
             "mountPoints": [],
             "volumesFrom": [],
