@@ -13,8 +13,11 @@
                         <a href="/">About</a>
                     </li>
                     <li class="list-inline-item">&sdot;</li>
-                    <li class="list-inline-item" data-toggle="modal" data-target="#exampleModal">
-                        <button type="button" class="btn btn-link">Contact</button></li>
+                    <!--li class="list-inline-item" data-toggle="modal" data-target="#exampleModal">
+                        <button type="button" class="btn btn-link">Contact</button></li-->
+                    <li class="list-inline-item">
+<a href="mailto:info@djmckay.tech?subject=Info Request">Send Email</a>
+</li>
                     <li class="list-inline-item">&sdot;</li>
                     <li class="list-inline-item hidden">
                         <a href="terms">Terms of Use</a>
