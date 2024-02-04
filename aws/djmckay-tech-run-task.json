@@ -148,5 +148,17 @@
     },
     "registeredAt": "2023-10-27T02:10:20.069Z",
     "registeredBy": "arn:aws:iam::795091308067:user/dj",
-    "tags": []
+    "tags": [],
+    "loadBalancers":[
+   {  
+      "targetGroupArn":"arn:aws:elasticloadbalancing:us-east-1:795091308067:targetgroup/ghost-blog-djmckay-tech-tg/47499c611699e721",
+      "containerName":"ghost",
+      "containerPort":2386
+   },
+   {  
+      "targetGroupArn":"arn:aws:elasticloadbalancing:us-east-1:795091308067:targetgroup/djmckay-tech-cluster-tg/31675e2a0407078a",
+      "containerName":"djmckay-tech",
+      "containerPort":8080
+   }
+]
 }
