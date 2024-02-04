@@ -15,6 +15,24 @@
             "mountPoints": [
                 
             ],
+            "environment": [
+                {
+                    "name": "database__connection__host",
+                    "value": "djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com"
+                },
+                 {
+                    "name": "database__connection__user",
+                    "value": "djmckaytech"
+                },
+                {
+                    "name": "database__connection__database",
+                    "value": "ghost"
+                }
+            ],
+            "secrets": [{
+              "name": "database__connection__password",
+              "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:djmckaytech-DATABASE_AWS_PASSWORD-K0rxTy:password::"
+            },
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
