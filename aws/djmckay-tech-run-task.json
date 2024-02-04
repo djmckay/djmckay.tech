@@ -20,6 +20,10 @@
                     "name": "database__connection__host",
                     "value": "djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com"
                 },
+                {
+                    "name": "database__connection__ssl",
+                    "value": "Amazon RDS"
+                },
                  {
                     "name": "database__connection__user",
                     "value": "djmckaytech"
