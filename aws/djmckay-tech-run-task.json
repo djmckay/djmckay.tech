@@ -13,8 +13,7 @@
                 }
             ],
             "mountPoints": [
-                {"containerPath": "/var/lib/ghost/content"
-                }
+                
             ]
         },
         {
