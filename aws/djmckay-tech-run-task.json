@@ -11,12 +11,8 @@
                     "protocol": "tcp",
                     "containerPort": 2368
                 }
-            ],
-            "mountPoints": [
-                {"containerPath": "/var/lib/ghost/content",
-                 "sourceVolume": "efs-server-AP"
-                }
             ]
+            
         },
         {
             "name": "djmckay-tech",
@@ -73,16 +69,7 @@
     "networkMode": "awsvpc",
     "revision": 25,
     "volumes": [
-        {"name": "efs-server-AP",
-         "efsVolumeConfiguration": 
-            {"fileSystemId": "fs-b6702d47",
-                "transitEncryption": "ENABLED",
-                "authorizationConfig": {
-                    "accessPointId": "fsap-0e0254e906640402e",
-                    "iam": "ENABLED"
-             }
-            }
-        }
+        
     ],
     "status": "ACTIVE",
     "requiresAttributes": [
