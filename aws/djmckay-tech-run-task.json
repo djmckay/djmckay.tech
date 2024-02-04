@@ -72,7 +72,18 @@
     "executionRoleArn": "arn:aws:iam::795091308067:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
     "revision": 25,
-    "volumes": [],
+    "volumes": [
+        {"name": "efs-server-AP",
+         "efsVolumeConfiguration": 
+            {"fileSystemId": "fs-b6702d47",
+                "transitEncryption": "ENABLED",
+                "authorizationConfig": {
+                    "accessPointId": "fsap-0e0254e906640402e",
+                    "iam": "ENABLED"
+             }
+            }
+        }
+    ],
     "status": "ACTIVE",
     "requiresAttributes": [
         {
