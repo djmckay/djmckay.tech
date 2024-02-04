@@ -36,7 +36,7 @@
             "secrets": [{
               "name": "database__connection__password",
               "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:djmckaytech-DATABASE_AWS_PASSWORD-K0rxTy:password::"
-            },
+            }],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
