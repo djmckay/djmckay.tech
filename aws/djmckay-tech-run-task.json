@@ -11,7 +11,7 @@
                     "protocol": "tcp",
                     "containerPort": 2368
                 }
-            ]
+            ],
             "mountPoints": [
                 {"containerPath": "/var/lib/ghost/content"
                 }
