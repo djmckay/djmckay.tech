@@ -7,7 +7,7 @@
             "essential": false,
             "portMappings": [
                 {
-                    "hostPort": 8080,
+                    "hostPort": 2368,
                     "protocol": "tcp",
                     "appProtocol": "http",
                     "containerPort": 2368
