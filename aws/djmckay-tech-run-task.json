@@ -2,54 +2,6 @@
     "taskDefinitionArn": "arn:aws:ecs:us-east-1:795091308067:task-definition/djmckay-tech-run-task-definition:25",
     "containerDefinitions": [
         {
-            "name": "ghost",
-            "image": "public.ecr.aws/docker/library/ghost:latest", 
-            "essential": false,
-            "portMappings": [
-                {
-                    "hostPort": 2368,
-                    "protocol": "tcp",
-                    "appProtocol": "http",
-                    "containerPort": 2368
-                }
-            ],
-            "mountPoints": [
-                
-            ],
-            "environment": [
-                {
-                    "name": "database__connection__host",
-                    "value": "djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com"
-                },
-                {
-                    "name": "database__connection__ssl",
-                    "value": "Amazon RDS"
-                },
-                 {
-                    "name": "database__connection__user",
-                    "value": "djmckaytech"
-                },
-                {
-                    "name": "database__connection__database",
-                    "value": "ghost"
-                }
-            ],
-            "secrets": [{
-              "name": "database__connection__password",
-              "valueFrom": "arn:aws:secretsmanager:us-east-1:795091308067:secret:djmckaytech-DATABASE_AWS_PASSWORD-K0rxTy:password::"
-            }],
-            "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                    "awslogs-create-group": "true",
-                    "awslogs-group": "/ecs/djmckay-tech-run-task-definition",
-                    "awslogs-region": "us-east-1",
-                    "awslogs-stream-prefix": "ecs"
-                },
-                "secretOptions": []
-            }
-        },
-        {
             "name": "djmckay-tech",
             "image": "795091308067.dkr.ecr.us-east-1.amazonaws.com/djmckay-tech:2eaae8ab152f6394a27f2b643fdf880ef4d95a97",
             "cpu": 0,
