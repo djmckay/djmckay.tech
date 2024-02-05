@@ -233,3 +233,11 @@ footer.footer {
         padding-bottom: 20px;
         width:200px
     }
+
+.bg-black2 {
+  background-color: linear-gradient(90deg, #481cab, #574797, #6f88c7, #639cc9, #31edd5) 1 0;
+}
+
+.bg-black2 {
+  background-color: #000000;
+}
