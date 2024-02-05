@@ -94,7 +94,7 @@
 </header>
         <div class="container-fluid p-0">
             #for(project in portfolio.projects) {
-                <div class="row no-gutters">
+                <div class="row no-gutters #if(index % 2 == 0) { bg-black }">
                     #if(project.imageURL) {
                         <div class="col-lg-6 #if(index % 2 == 0) { order-lg-2 } showcase-img" style="background-image: url('#(project.imageURL)');"></div>
                     } else {
@@ -160,7 +160,7 @@
     </section>
 
     <!-- Testimonials -->
-    <section class="testimonials text-center bg-dark text-light">
+    <section class="testimonials text-center bg-black text-light">
       <div class="container">
         <h2 class="mb-5">👨‍💻More Me!</h2>
             <div class="testimonial-item mx-auto mb-5 mb-lg-0">
