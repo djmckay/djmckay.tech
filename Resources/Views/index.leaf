@@ -89,7 +89,6 @@
 
     <!-- Image Showcases -->
     <section class="showcase bg-dark text-white">
-<div style="min-height: 58px; max-width: 440px;width: 100%;position: absolute; left: 50%; top:50%; transform: translate(-50%, -50%);"><script src="https://cdn.jsdelivr.net/ghost/signup-form@~0.1/umd/signup-form.min.js" data-button-color="#9656ab" data-button-text-color="#FFFFFF" data-site="https://blog.djmckay.tech/" async></script></div>
 
 <header class="text-center">
 <h2 class="mb-5">portfolio</h2>
