@@ -5,11 +5,10 @@
 
 <!-- Footer -->
 <footer class="footer bg-dark">
-    <div class="container">
-        <div class="row">
-
+<div style="min-height: 58px; max-width: 440px;width: 100%;position: absolute; left: 50%; top:50%; transform: translate(-50%, -50%);"><script src="https://cdn.jsdelivr.net/ghost/signup-form@~0.1/umd/signup-form.min.js" data-button-color="#9656ab" data-button-text-color="#FFFFFF" data-site="https://blog.djmckay.tech/" async></script></div>
 <div style="height: 100vh"><script src="https://cdn.jsdelivr.net/ghost/signup-form@~0.1/umd/signup-form.min.js" data-background-color="#08090c" data-text-color="#FFFFFF" data-button-color="#9656ab" data-button-text-color="#FFFFFF" data-title="djmckay.tech" data-description="Things I Like: Software engineering, Disney, comics, wrestling and running.  This I don&#039;t like: interviews." data-site="https://blog.djmckay.tech/" async></script></div>
-</div>
+    <div class="container">
+        
         <div class="row">
             <div class="col-lg-6 h-100 text-center text-lg-left my-auto">
                 <ul class="list-inline mb-2">
