@@ -160,9 +160,9 @@
     </section>
 
     <!-- Testimonials -->
-    <section class="testimonials text-center bg-light">
+    <section class="testimonials text-center bg-dark text-light">
       <div class="container">
-        <h2 class="mb-5">More Me!</h2>
+        <h2 class="mb-5">👨‍💻More Me!</h2>
             <div class="testimonial-item mx-auto mb-5 mb-lg-0">
 <img class="img-fluid rounded-circle mb-3" src="#(avatar)" alt="">
 <h5>#(brand)</h5>
