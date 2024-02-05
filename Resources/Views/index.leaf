@@ -45,7 +45,7 @@
     </header>
 
     <!-- Icons Grid -->
-    <section class="features-icons bg-light text-center">
+    <section class="features-icons text-center bg-dark text-white">
       <div class="container">
         <div class="row">
          
@@ -94,7 +94,7 @@
 </header>
         <div class="container-fluid p-0">
             #for(project in portfolio.projects) {
-                <div class="row no-gutters">
+                <div class="row no-gutters #if(index % 2 == 0) { bg-dark text-white } else { bg-ligth text-black }">
                     #if(project.imageURL) {
                         <div class="col-lg-6 #if(index % 2 == 0) { order-lg-2 } text-white showcase-img" style="background-image: url('#(project.imageURL)');"></div>
                     } else {
