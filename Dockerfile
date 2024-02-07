@@ -34,27 +34,27 @@ COPY --from=builder /app/Resources ./Resources
 
 
 
-# SignInWithApple Environment ARG
-ARG SIWA_ID
-ARG SIWA_REDIRECT_URL
-ARG SIWA_JWK_ID
-ARG SIWA_PRIVATE_KEY
-ARG SIWA_TEAM_ID
-ARG SIWA_APP_BUNDLE_ID
+# # SignInWithApple Environment ARG
+# ARG SIWA_ID
+# ARG SIWA_REDIRECT_URL
+# ARG SIWA_JWK_ID
+# ARG SIWA_PRIVATE_KEY
+# ARG SIWA_TEAM_ID
+# ARG SIWA_APP_BUNDLE_ID
 
-# Set Environment
-RUN echo "SIWA_ID=${SIWA_ID}" > .env.production
-RUN echo "SIWA_REDIRECT_URL=${SIWA_REDIRECT_URL}" >> .env.production
-RUN echo "SIWA_JWK_ID=${SIWA_JWK_ID}" >> .env.production
-RUN echo "SIWA_PRIVATE_KEY=${SIWA_PRIVATE_KEY}" >> .env.production
-RUN echo "SIWA_TEAM_ID=${SIWA_TEAM_ID}" >> .env.production
-RUN echo "SIWA_APP_BUNDLE_ID=${SIWA_APP_BUNDLE_ID}" >> .env.production
+# # Set Environment
+# RUN echo "SIWA_ID=${SIWA_ID}" > .env.production
+# RUN echo "SIWA_REDIRECT_URL=${SIWA_REDIRECT_URL}" >> .env.production
+# RUN echo "SIWA_JWK_ID=${SIWA_JWK_ID}" >> .env.production
+# RUN echo "SIWA_PRIVATE_KEY=${SIWA_PRIVATE_KEY}" >> .env.production
+# RUN echo "SIWA_TEAM_ID=${SIWA_TEAM_ID}" >> .env.production
+# RUN echo "SIWA_APP_BUNDLE_ID=${SIWA_APP_BUNDLE_ID}" >> .env.production
 
-RUN echo "DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME}" >> .env.production
-# RUN echo "DB_PORT=${AWS_RDS_PORT}" >> .env.production
-RUN echo "DATABASE_AWS_USER=${DATABASE_AWS_USER}" >> .env.production
-RUN echo "DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD}" >> .env.production
-RUN echo "DATABASE_AWS_DB=${DATABASE_AWS_DB}" >> .env.production
+# RUN echo "DATABASE_AWS_HOSTNAME=${DATABASE_AWS_HOSTNAME}" >> .env.production
+# # RUN echo "DB_PORT=${AWS_RDS_PORT}" >> .env.production
+# RUN echo "DATABASE_AWS_USER=${DATABASE_AWS_USER}" >> .env.production
+# RUN echo "DATABASE_AWS_PASSWORD=${DATABASE_AWS_PASSWORD}" >> .env.production
+# RUN echo "DATABASE_AWS_DB=${DATABASE_AWS_DB}" >> .env.production
 
 USER root
       
