@@ -21,7 +21,7 @@ function fetchData() {
 
 function takeData(val) {
 
-  document.getElementById('visitor').innerHTML = val.Attributes.numberOfVisitors;
+  document.getElementById('visitor').innerHTML = val.numberOfVisitors;
 }
 
 fetchData();
