@@ -9,7 +9,7 @@ document.cookie = "cookies-accepted=true;" + expires;
 
 function fetchData() {
 
-  fetch("https://tba.execute-api.eu-west-2.amazonaws.com/prod/", {
+  fetch("https://m081tuazhj.execute-api.us-east-1.amazonaws.com/default/djmckay_tech_counter", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -24,4 +24,4 @@ function takeData(val) {
   document.getElementById('visitor').innerHTML = val.Attributes.numberOfVisitors;
 }
 
-//fetchData();
+fetchData();
