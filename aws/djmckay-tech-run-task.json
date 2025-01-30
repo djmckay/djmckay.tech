@@ -93,8 +93,8 @@
     "requiresCompatibilities": [
         "FARGATE"
     ],
-    "cpu": "1024",
-    "memory": "3072",
+    "cpu": "256",
+    "memory": "512",
     "runtimePlatform": {
         "operatingSystemFamily": "LINUX"
     },
