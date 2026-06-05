@@ -95,7 +95,8 @@ let indexContext = IndexContext(
     alert: "",
     avatar: site?.avatar ?? "",
     avatarByLine: site?.avatarByLine ?? ""
-)            return try req.view().render("index", indexContext)
+)            
+       return try req.view().render("index", indexContext)
 
             
         }
