@@ -1,4 +1,4 @@
-FROM swift:5.1 as builder
+FROM swift:4.2 as builder
 
 ARG env=""
 ENV ENVIRONMENT=$env
@@ -16,7 +16,7 @@ RUN mkdir -p /build/lib && cp -R /usr/lib/swift/linux/*.so* /build/lib
 RUN swift package resolve
 
 # Replace FoundationClient with a stub that doesn't use URLSession
-RUN printf 'import Vapor\nimport Service\n\npublic final class FoundationClient: Client, ServiceType {\n    public static var serviceSupports: [Any.Type] { return [Client.self] }\n    public static func makeService(for worker: Container) throws -> FoundationClient {\n        return FoundationClient(on: worker)\n    }\n    public var container: Container\n    public init(on container: Container) { self.container = container }\n    public func send(_ req: Request) -> Future<Response> {\n        return req.eventLoop.newFailedFuture(error: Abort(.internalServerError, reason: "FoundationClient not supported"))\n    }\n}\n' > .build/checkouts/vapor/Sources/Vapor/Client/FoundationClient.swift
+# RUN printf 'import Vapor\nimport Service\n\npublic final class FoundationClient: Client, ServiceType {\n    public static var serviceSupports: [Any.Type] { return [Client.self] }\n    public static func makeService(for worker: Container) throws -> FoundationClient {\n        return FoundationClient(on: worker)\n    }\n    public var container: Container\n    public init(on container: Container) { self.container = container }\n    public func send(_ req: Request) -> Future<Response> {\n        return req.eventLoop.newFailedFuture(error: Abort(.internalServerError, reason: "FoundationClient not supported"))\n    }\n}\n' > .build/checkouts/vapor/Sources/Vapor/Client/FoundationClient.swift
 
 RUN swift build -c release && mv `swift build -c release --show-bin-path` /build/bin
 
