@@ -85,8 +85,17 @@ projectContexts.append(ProjectContext(
     imageURL: project.imageURL ?? "",
     galleryURL: project.galleryURL ?? ""
 ))            }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: nil, avatar: site?.avatar, avatarByLine: site?.avatarByLine)
-            return try req.view().render("index", indexContext)
+let indexContext = IndexContext(
+    brand: site?.brand ?? "missing brand",
+    socials: socialContexts,
+    title: site?.title ?? "missing title",
+    portfolio: PortfolioContext(projects: projectContexts),
+    header: site?.header ?? "missing header",
+    about: site?.about ?? "missing about",
+    alert: "",
+    avatar: site?.avatar ?? "",
+    avatarByLine: site?.avatarByLine ?? ""
+)            return try req.view().render("index", indexContext)
 
             
         }
