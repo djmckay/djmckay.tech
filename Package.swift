@@ -9,7 +9,8 @@ let package = Package(
         
         // 🍃 An expressive, performant, and extensible templating language built for Swift.
         .package(url: "https://github.com/vapor/fluent-mysql.git", from: "3.0.0-rc"),
-        .package(url: "https://github.com/vapor/leaf.git", from: "3.0.0-rc"),
+        .package(url: "https://github.com/vapor/leaf.git", .exact("3.0.0")),
+        .package(url: "https://github.com/vapor/template-kit.git", .exact("1.0.0")),
         .package(url: "https://github.com/vapor/jwt.git", from: "3.0.0"),
         .package(url: "https://github.com/vapor/auth.git", from: "2.0.0-rc"),
         .package(url: "https://github.com/vapor/console.git", from: "3.0.0"),
