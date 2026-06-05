@@ -11,6 +11,14 @@ RUN apt-get -qq update && apt-get -q -y install \
 WORKDIR /app
 COPY . .
 RUN mkdir -p /build/lib && cp -R /usr/lib/swift/linux/*.so* /build/lib
+
+# Resolve packages first so we can patch the Vapor source
+RUN swift package resolve
+
+# Patch FoundationClient.swift to add FoundationNetworking import
+RUN sed -i 's/import Foundation/import Foundation\n#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif/' \
+  .build/checkouts/vapor/Sources/Vapor/Client/FoundationClient.swift
+
 RUN swift build -c release && mv `swift build -c release --show-bin-path` /build/bin
 
 FROM ubuntu:18.04
