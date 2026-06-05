@@ -20,10 +20,10 @@ RUN swift package resolve
 
 RUN swift build -c release && mv `swift build -c release --show-bin-path` /build/bin
 
-FROM ubuntu:18.04
+FROM ubuntu:16.04
 RUN apt-get -qq update && apt-get install -y \
-  libicu60 libxml2 libbsd0 libcurl4 libatomic1 \
-  libssl1.1 \
+  libicu55 libxml2 libbsd0 libcurl3 libatomic1 \
+  libssl1.0.0 \
   tzdata \
   && rm -r /var/lib/apt/lists/*
 
