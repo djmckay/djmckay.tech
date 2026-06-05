@@ -33,6 +33,9 @@ COPY --from=builder /build/lib/* /usr/lib/
 COPY --from=builder /app/Public ./Public
 COPY --from=builder /app/Resources ./Resources
 
+# Verify
+RUN ls -la /app/Resources/Views/ && echo "Views OK"
+
 USER root
 EXPOSE 8080
 ENTRYPOINT ./Run serve --env production --hostname 0.0.0.0 --port 8080
