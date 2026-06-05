@@ -17,9 +17,9 @@
             "essential": true,
              "environment": [
                 {
-                    "name": "DATABASE_AWS_HOSTNAME",
-                    "value": "djmckay-tech.crenbjixljaz.us-east-1.rds.amazonaws.com"
-                },
+    "name": "DATABASE_AWS_HOSTNAME",
+    "value": "djmckay-tech-new.crenbjixljaz.us-east-1.rds.amazonaws.com"
+},
                  {
                     "name": "DATABASE_AWS_DB",
                     "value": "djmckaytech"
