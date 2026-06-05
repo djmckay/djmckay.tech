@@ -5,12 +5,13 @@ ENV ENVIRONMENT=$env
 
 RUN apt-get -qq update && apt-get -q -y install \
   tzdata \
+  libssl-dev \
   && rm -r /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY . .
 RUN mkdir -p /build/lib && cp -R /usr/lib/swift/linux/*.so* /build/lib
-RUN swift build -c release --verbose 2>&1 | tail -50 && mv `swift build -c release --show-bin-path` /build/bin
+RUN swift build -c release && mv `swift build -c release --show-bin-path` /build/bin
 
 # Production image
 FROM ubuntu:18.04
