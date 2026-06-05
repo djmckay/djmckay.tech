@@ -16,6 +16,7 @@ RUN swift build -c release --verbose 2>&1 | tail -50 && mv `swift build -c relea
 FROM ubuntu:18.04
 RUN apt-get -qq update && apt-get install -y \
   libicu60 libxml2 libbsd0 libcurl4 libatomic1 \
+  libssl1.1 \
   tzdata \
   && rm -r /var/lib/apt/lists/*
 
