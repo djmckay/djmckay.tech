@@ -17,9 +17,9 @@
             "essential": true,
              "environment": [
                 {
-    "name": "DATABASE_AWS_HOSTNAME",
-    "value": "djmckay-tech-new.crenbjixljaz.us-east-1.rds.amazonaws.com"
-},
+                    "name": "DATABASE_AWS_HOSTNAME",
+                    "value": "djmckay-tech-new.crenbjixljaz.us-east-1.rds.amazonaws.com"
+                 },
                  {
                     "name": "DATABASE_AWS_DB",
                     "value": "djmckaytech"
@@ -94,7 +94,7 @@
         "FARGATE"
     ],
     "cpu": "256",
-    "memory": "512",
+    "memory": "1024",
     "runtimePlatform": {
         "operatingSystemFamily": "LINUX"
     },
