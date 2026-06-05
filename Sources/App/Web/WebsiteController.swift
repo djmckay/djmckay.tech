@@ -40,13 +40,23 @@ struct WebsiteController: RouteCollection {
             
             var socialContexts: [SocialContext] = []
             for social in socials {
-                socialContexts.append(SocialContext(url: social.url, handle: social.handle, icon: social.icon))
+                socialContexts.append(SocialContext(
+    url: social.url ?? "",
+    handle: social.handle ?? "",
+    icon: social.icon ?? ""
+))
             }
             var projectContexts: [ProjectContext] = []
             for project in projects {
-                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
-            }
-            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: alert, avatar: site?.avatar, avatarByLine: site?.avatarByLine)
+projectContexts.append(ProjectContext(
+    name: project.name,
+    description: project.description,
+    url: project.url ?? "",
+    github: project.github ?? "",
+    imageURL: project.imageURL ?? "",
+    galleryURL: project.galleryURL ?? ""
+))            }
+            let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: alert ?? "", avatar: site?.avatar ?? "", avatarByLine: site?.avatarByLine ?? "")
             return try req.view().render("index", indexContext)
             
             
@@ -59,12 +69,22 @@ struct WebsiteController: RouteCollection {
             
             var socialContexts: [SocialContext] = []
             for social in socials {
-                socialContexts.append(SocialContext(url: social.url, handle: social.handle, icon: social.icon))
+                socialContexts.append(SocialContext(
+    url: social.url ?? "",
+    handle: social.handle ?? "",
+    icon: social.icon ?? ""
+))
             }
             var projectContexts: [ProjectContext] = []
             for project in projects {
-                projectContexts.append(ProjectContext(name: project.name, description: project.description, url: project.url, github: project.github, imageURL: project.imageURL, galleryURL: project.galleryURL))
-            }
+projectContexts.append(ProjectContext(
+    name: project.name,
+    description: project.description,
+    url: project.url ?? "",
+    github: project.github ?? "",
+    imageURL: project.imageURL ?? "",
+    galleryURL: project.galleryURL ?? ""
+))            }
             let indexContext: IndexContext = IndexContext(brand: site?.brand ?? "missing brand", socials: socialContexts, title: site?.title ?? "missing title", portfolio: PortfolioContext(projects: projectContexts), header: site?.header ?? "missing header", about: site?.about ?? "missing about", alert: nil, avatar: site?.avatar, avatarByLine: site?.avatarByLine)
             return try req.view().render("index", indexContext)
 
@@ -94,9 +114,9 @@ struct IndexContext: BaseContext {
     var portfolio: PortfolioContext
     var header: String
     var about: String
-    var alert: String?
-    var avatar: String?
-    var avatarByLine: String?
+    var alert: String
+    var avatar: String
+    var avatarByLine: String
 }
 
 struct PortfolioContext: Encodable {
@@ -108,15 +128,15 @@ struct ProjectContext: Encodable {
     var name: String
     var description: String
     var url: String?
-    var github: String?
-    var imageURL: String?
-    var galleryURL: String?
+    var github: String
+    var imageURL: String
+    var galleryURL: String
 }
 
 struct SocialContext: Encodable {
-    var url: String?
-    var handle: String?
-    var icon: String?
+    var url: String
+    var handle: String
+    var icon: String
 }
 
 struct ContactPostData: Content {
