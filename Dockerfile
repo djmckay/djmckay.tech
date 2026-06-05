@@ -15,21 +15,8 @@ RUN mkdir -p /build/lib && cp -R /usr/lib/swift/linux/*.so* /build/lib
 # Resolve packages first so we can patch the Vapor source
 RUN swift package resolve
 
-# Replace FoundationClient with a minimal stub that compiles
-RUN cat > .build/checkouts/vapor/Sources/Vapor/Client/FoundationClient.swift << 'EOF'
-import Foundation
-import HTTP
-import Service
-
-public final class FoundationClient: Client {
-    public var container: Container
-    public init(on container: Container) { self.container = container }
-    public func send(_ req: HTTPRequest, on worker: Worker) -> Future<HTTPResponse> {
-        return worker.eventLoop.newFailedFuture(error: VaporError(identifier: "notSupported", reason: "FoundationClient not supported"))
-    }
-}
-EOF
-
+# Replace FoundationClient with a stub that doesn't use URLSession
+RUN printf 'import Foundation\nimport HTTP\nimport Service\n\npublic final class FoundationClient: Client {\n    public var container: Container\n    public init(on container: Container) { self.container = container }\n    public func send(_ req: HTTPRequest, on worker: Worker) -> Future<HTTPResponse> {\n        return worker.eventLoop.newFailedFuture(error: VaporError(identifier: "notSupported", reason: "FoundationClient not supported"))\n    }\n}\n' > .build/checkouts/vapor/Sources/Vapor/Client/FoundationClient.swift
 RUN swift build -c release && mv `swift build -c release --show-bin-path` /build/bin
 
 FROM ubuntu:18.04
