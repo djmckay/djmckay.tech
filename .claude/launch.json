@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "static-site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "static-site", "run", "serve", "--", "--port=8181"],
+      "port": 8181
+    }
+  ]
+}

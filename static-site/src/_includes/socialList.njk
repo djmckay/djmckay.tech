@@ -1,0 +1,9 @@
+<ul class="list-inline mb-0">
+{% for social in socials %}
+  <li class="list-inline-item">
+    <a target="_blank" rel="noopener" href="{{ social.url }}{{ social.handle }}">
+      <i class="fab {{ social.icon }} fa-2x fa-fw"></i>
+    </a>
+  </li>
+{% endfor %}
+</ul>

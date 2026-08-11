@@ -1,0 +1,108 @@
+---
+layout: base.njk
+title: DJ McKay.tech
+extraStyles:
+  - /css/landing-page.css
+permalink: /index.html
+---
+<!-- Masthead -->
+<header class="masthead text-white text-center">
+  <div class="overlay"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-xl-9 mx-auto">
+        <div>
+          <h1 class="mb-5">{{ site.header }}</h1>
+        </div>
+        <p>{{ site.about }}</p>
+        <a class="btn btn-primary" href="mailto:{{ profile.email }}?subject=Hello">Contact me!</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Icons Grid -->
+<section class="features-icons text-center bg-dark text-white">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-4">
+        <div class="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+          <a href="/resume/">
+            <div class="features-icons-icon d-flex">
+              <i class="icon-briefcase m-auto text-primary"></i>
+            </div>
+          </a>
+          <h3>Resumé</h3>
+          <p class="lead mb-0">View my <a href="/resume/">resumé!</a></p>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="features-icons-item mx-auto mb-0 mb-lg-3">
+          <div class="features-icons-icon d-flex">
+            <i class="icon-trophy m-auto text-primary"></i>
+          </div>
+          <i class="fa fa-code fa-2x fa-fw"></i>
+          <p class="lead mb-0">Clean and efficient code. During my years of development and consulting, I enjoyed mentoring developers on clean code, test driven development, design patterns and code reuse.</p>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+          <div class="features-icons-icon d-flex">
+            <i class="icon-check m-auto text-primary"></i>
+          </div>
+          <h3>UX</h3>
+          <p class="lead mb-0">It's not "done" until the user is happy!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Portfolio -->
+<section class="showcase bg-dark text-white">
+  <header class="text-center">
+    <h2 class="mb-5">portfolio</h2>
+  </header>
+  <div class="container-fluid p-0">
+    {% for project in projects %}
+    <div class="row no-gutters {% if loop.index0 % 2 == 0 %}bg-black{% endif %}">
+      {% if project.imageURL %}
+      <div class="col-lg-6 {% if loop.index0 % 2 == 0 %}order-lg-2{% endif %} showcase-img" style="background-image: url('{{ project.imageURL }}');"></div>
+      {% else %}
+      <div class="col-lg-6 {% if loop.index0 % 2 == 0 %}order-lg-2{% endif %} showcase-img"></div>
+      {% endif %}
+      <div class="col-lg-6 {% if loop.index0 % 2 == 0 %}order-lg-1{% endif %} my-auto showcase-text">
+        <h2>{{ project.name }}</h2>
+        <p class="lead mb-0">{{ project.description | safe }}</p>
+        {% if project.github %}
+        <a target="_blank" rel="noopener" href="https://github.com/{{ project.github }}">
+          <i class="fab fa-github fa-2x fa-fw"></i>
+        </a>
+        {% endif %}
+        {% if project.url %}
+        <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="{{ project.url }}">
+          <span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the website</span></span>
+        </a>
+        {% endif %}
+        {% if project.galleryURL %}
+        <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="{{ project.galleryURL }}">
+          <span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the gallery</span></span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- More Me -->
+<section class="testimonials text-center bg-black text-light">
+  <div class="container">
+    <h2 class="mb-5">👨‍💻More Me!</h2>
+    <div class="testimonial-item mx-auto mb-5 mb-lg-0">
+      <img class="img-fluid rounded-circle mb-3" src="{{ site.avatar }}" alt="">
+      <h5>{{ site.brand }}</h5>
+      <p class="font-weight-light mb-0">{{ site.avatarByLine }}</p>
+    </div>
+  </div>
+</section>

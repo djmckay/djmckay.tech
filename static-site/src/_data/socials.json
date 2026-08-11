@@ -1,0 +1,27 @@
+[
+  {
+    "url": "https://www.twitter.com/",
+    "handle": "dj_mckay",
+    "icon": "fa-twitter-square"
+  },
+  {
+    "url": "https://github.com/",
+    "handle": "djmckay",
+    "icon": "fa-github"
+  },
+  {
+    "url": "https://www.credly.com/badges/4705790f-6be3-4ab9-b365-e87439fe417f/public_url",
+    "handle": "",
+    "icon": "fa-aws"
+  },
+  {
+    "url": "https://www.instagram.com/",
+    "handle": "_djmck",
+    "icon": "fa-instagram"
+  },
+  {
+    "url": "https://www.linkedin.com/in/",
+    "handle": "dj-mckay",
+    "icon": "fa-linkedin"
+  }
+]

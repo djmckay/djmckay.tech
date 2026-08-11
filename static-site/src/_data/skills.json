@@ -1,0 +1,146 @@
+[
+  {
+    "image": "https://cdn.aws.training/release/f5c15306eaf774e85be96c59e9480b90/static/media/logo-color-dark.e2c9fdd2.svg",
+    "title": "AWS Certified Solutions Architect – Associate",
+    "text": null,
+    "supportingText": "2023"
+  },
+  {
+    "image": null,
+    "title": "Bootstrap",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/cucumber",
+    "title": "Cucumber",
+    "text": "<a href=\"https://cucumber.io\">More Information</a>",
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/dreamweaver.png",
+    "title": "Dreamweaver",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/octocat-spinner-128.gif",
+    "title": "Github",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "HTML/CSS",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "Hibernate",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "JSON",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "JWT",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "JWT/Authentication",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/java.png",
+    "title": "Java",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "Javascript",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/jenkins.svg",
+    "title": "Jenkins",
+    "text": null,
+    "supportingText": "2017"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/appstorebadge%402x.png",
+    "title": "Mobile App Development",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "MySQL",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "Objective-C",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "PHP",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "Photoshop",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": null,
+    "title": "RESTful services",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/CSM_ConceptsR2-01.png",
+    "title": "Scrum",
+    "text": null,
+    "supportingText": "Coming Soon"
+  },
+  {
+    "image": null,
+    "title": "Selenium",
+    "text": null,
+    "supportingText": "2017"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/swift.svg",
+    "title": "Swift",
+    "text": "Using for various ongoing projects, Expert.",
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/Logo_xcode.png",
+    "title": "XCode",
+    "text": null,
+    "supportingText": "2018"
+  },
+  {
+    "image": "https://s3.us-east-2.amazonaws.com/djmckay-tech/app-store-icon.png",
+    "title": "iOS App",
+    "text": null,
+    "supportingText": "2018"
+  }
+]

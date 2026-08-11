@@ -1,0 +1,112 @@
+---
+layout: base.njk
+title: Resume
+extraStyles:
+  - /css/landing-page.css
+  - /css/resume-page.css
+permalink: /resume/index.html
+---
+<div class="resume">
+
+<section id="summary" class="section scrollspy">
+  <div class="container">
+    <div class="card bg-dark-card"><div class="card-header">
+      <h3 class="page-title text-white teal">Profile</h3>
+    </div>
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ profile.name }}</h5>
+          <p><em class="grey-text">{{ profile.summary | safe }}</em></p>
+          <div class="card-action"><span>{{ profile.action }}</span></div>
+          <a class="btn btn-primary" href="mailto:{{ profile.email }}?subject=Hello">Contact me!</a>
+          <div class="card-body">
+            <h5 class="card-title">Contact</h5>
+            <p class="card-text">{{ profile.phone }}</p>
+            <p class="card-text">{{ profile.email }}</p>
+            <p class="card-text">{{ profile.address }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="experience" class="section scrollspy">
+  <div class="container">
+    <div class="card bg-dark-card"><div class="card-header">
+      <h3 class="page-title text-white teal">Experience</h3>
+    </div>
+    {% for experience in experiences %}
+      <div class="card">
+        <div class="card-header"><h5>{{ experience.header }}
+          {% if experience.current %}<span class="badge badge-info">Current</span>{% endif %}
+          {% if experience.url %}
+          <a class="btn btn-sm btn-primary float-right" target="_blank" rel="noopener" href="{{ experience.url }}">
+            <span><svg class="i-svg" height="25" version="1.1" width="50" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 50 50" data-icon="facebook,"><path d="M36.999,36.998H13V13.089L19,13V7h-12v35.998h35.998V27.999h-6V36.998z M25,7l6,6l-9,9l6,6l8.999-9l6,6V7H25z" fill="#ffffff"></path></svg> <span>Visit the website</span></span>
+          </a>
+          {% endif %}
+        </h5></div>
+        <div class="card-body">
+          <h5 class="card-title">{{ experience.title }}</h5>
+          <p><em class="grey-text">{{ experience.summary | safe }}</em></p>
+          <p class="card-text">{{ experience.text | safe }}</p>
+        </div>
+        <div class="card-action"><span>{{ experience.action | safe }}</span> <span class="badge badge-primary">{{ experience.location }}</span></div>
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="education" class="section scrollspy">
+  <div class="container">
+    <div class="card bg-dark-card"><div class="card-header">
+      <h3 class="page-title text-white teal">Education</h3>
+    </div>
+    {% for education in educations %}
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ education.title }}</h5>
+          <p class="card-text">{{ education.text | safe }}</p>
+          <p class="card-text"><small class="text-muted">{{ education.supportingText }}</small></p>
+        </div>
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="skills" class="section scrollspy">
+  <div class="container">
+    <div class="card bg-dark-card"><div class="card-header">
+      <h3 class="page-title text-white teal">Technology Summary</h3>
+    </div>
+    <div class="card-columns">
+      {% for skill in skills %}
+      <div class="card">
+        {% if skill.image %}
+        <img class="card-img-top img-fluid img-thumbnail rounded mx-auto d-block" src="{{ skill.image }}" alt="{{ skill.title }} image cap" style="max-width: 10rem;">
+        {% endif %}
+        <div class="card-body">
+          {% if skill.title %}<h5 class="card-title">{{ skill.title }}</h5>{% endif %}
+          {% if skill.text %}<p class="card-text">{{ skill.text | safe }}</p>{% endif %}
+          {% if skill.supportingText %}<p class="card-text"><small class="text-muted">{{ skill.supportingText | safe }}</small></p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="section scrollspy">
+  {% if profile.downloadURL %}
+  <div class="container">
+    <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="{{ profile.downloadURL }}">
+      <span><i class="fa fa-cloud-download-alt fa-2x fa-fw"></i> <span>Download</span></span>
+    </a>
+  </div>
+  {% endif %}
+</section>
+
+</div>
