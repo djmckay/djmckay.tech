@@ -82,10 +82,10 @@ struct DJMcKayTech {
     static fileprivate let DatabaseUsername: String = Environment.get("DATABASE_AWS_USER") ?? Environment.get("DATABASE_USER") ??  "djmckaytech"
     static fileprivate let DatabasePassword: String = Environment.get("DATABASE_AWS_PASSWORD") ?? Environment.get("DATABASE_PASSWORD") ??  "password"
     
-    static let DJMcKayTechConfig = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_AWS_HOSTNAME") ?? Environment.get("DATABASE_HOSTNAME") ??  "localhost", port: 3306, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_AWS_DB") ?? Environment.get("DATABASE_DB") ?? "DJMcKayTech")
+    static let DJMcKayTechConfig = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_AWS_HOSTNAME") ?? Environment.get("DATABASE_HOSTNAME") ??  "localhost", port: 3306, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_AWS_DB") ?? Environment.get("DATABASE_DB") ?? "DJMcKayTech", transport: .unverifiedTLS)
     static let DJMcKayTech = MySQLDatabase(config: DJMcKayTechConfig)
-    
-    static let DJMcKayTechConfigTest = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_AWS_HOSTNAME") ?? Environment.get("DATABASE_HOSTNAME") ?? "localhost", port: Int(Environment.get("DATABASE_AWS_PORT") ?? "3308") ?? 3308, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_AWS_DB") ?? Environment.get("DATABASE_DB") ?? "DJMcKayTech-test")
+
+    static let DJMcKayTechConfigTest = MySQLDatabaseConfig(hostname: Environment.get("DATABASE_AWS_HOSTNAME") ?? Environment.get("DATABASE_HOSTNAME") ?? "localhost", port: Int(Environment.get("DATABASE_AWS_PORT") ?? "3308") ?? 3308, username: DatabaseUsername, password: DatabasePassword, database: Environment.get("DATABASE_AWS_DB") ?? Environment.get("DATABASE_DB") ?? "DJMcKayTech-test", transport: .unverifiedTLS)
     static let DJMcKayTechTest = MySQLDatabase(config: DJMcKayTechConfigTest)
 }
 
