@@ -315,7 +315,10 @@
         addUsage(proposal.usage);
         showCost();
         log(proposal.thought);
-        plan = settings.verifier ? await verifyMoves(proposal, mine) : { moves: proposal.moves, thought: proposal.thought };
+        // The first reveal is always safe (the engine places mines after it), so there is nothing for the referee to judge.
+        const opening = game.status === "ready" && proposal.moves.length === 1 && proposal.moves[0].action === "reveal";
+        if (settings.verifier && opening) log("Opening move: the first reveal is always safe, so no verification is needed.", "verify");
+        plan = settings.verifier && !opening ? await verifyMoves(proposal, mine) : { moves: proposal.moves, thought: proposal.thought };
         if (!plan) return; // superseded by a reset
       } catch (e) {
         if (mine !== epoch) return;
