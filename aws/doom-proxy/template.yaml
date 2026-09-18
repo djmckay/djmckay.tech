@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Proxy that turns one Doom screenshot into one Claude-chosen action (djmckay.tech/doom)
+
+Parameters:
+  AnthropicSecretName:
+    Type: String
+    Default: djmckay/anthropic-api-key
+    Description: Name of an existing Secrets Manager secret holding the Anthropic API key (plain string)
+  AllowedOrigin:
+    Type: String
+    Default: https://djmckay.tech
+    Description: Origins served and allowed by CORS, separated by | or , (e.g. https://djmckay.tech|http://localhost:8181)
+  DailyCallCap:
+    Type: Number
+    Default: 3000
+  DailyUsdCap:
+    Type: Number
+    Default: 5
+    Description: Estimated USD of model spend per UTC day per warm instance; further requests get 429
+  PerIpPerMin:
+    Type: Number
+    Default: 60
+  Model:
+    Type: String
+    Default: claude-haiku-4-5-20251001
+
+Resources:
+  DoomProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: djmckay-doom-proxy
+      CodeUri: .
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 20
+      # Hard ceiling on parallel model calls, and so on spend rate.
+      ReservedConcurrentExecutions: 3
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              # Secrets Manager appends a random suffix to the ARN, hence the trailing -*
+              Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
+      Environment:
+        Variables:
+          ANTHROPIC_SECRET_ID: !Ref AnthropicSecretName
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          DAILY_CALL_CAP: !Ref DailyCallCap
+          DAILY_USD_CAP: !Ref DailyUsdCap
+          PER_IP_PER_MIN: !Ref PerIpPerMin
+          MODEL: !Ref Model
+      # No Cors block: index.js sets the CORS headers itself, and doing both duplicates them.
+      FunctionUrlConfig:
+        AuthType: NONE
+
+Outputs:
+  FunctionUrl:
+    Description: Paste into proxyUrl in static-site/src/doom.njk
+    Value: !GetAtt DoomProxyFunctionUrl.FunctionUrl

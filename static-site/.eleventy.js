@@ -3,6 +3,7 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({ "src/vendor": "vendor" });
   eleventyConfig.addPassthroughCopy({ "src/img": "img" });
   eleventyConfig.addPassthroughCopy({ "src/scripts": "scripts" });
+  eleventyConfig.addPassthroughCopy({ "src/doom": "doom" });
 
   // These directories are static assets copied as-is above; don't let
   // Eleventy also treat files inside them (e.g. a vendored README.md) as templates.
@@ -10,6 +11,7 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.ignores.add("src/css/**");
   eleventyConfig.ignores.add("src/img/**");
   eleventyConfig.ignores.add("src/scripts/**");
+  eleventyConfig.ignores.add("src/doom/**");
 
   eleventyConfig.addFilter("year", () => new Date().getFullYear());
 

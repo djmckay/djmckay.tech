@@ -1,0 +1,56 @@
+---
+layout: base.njk
+title: Claude plays Minesweeper
+description: An LLM plays Minesweeper, one board state at a time.
+permalink: /minesweeper/index.html
+extraStyles:
+  - /css/landing-page.css
+---
+<section class="py-5">
+  <div class="container">
+    <h1 class="mb-2">Claude plays Minesweeper</h1>
+    <p class="text-muted">Play it yourself (click to reveal, right-click or Flag mode to flag) or let Claude try. Claude sees the board as text and picks up to five moves per turn. The page enforces the rules, so it can't cheat and has to reason its way out.</p>
+    <div class="ms-grid">
+      <div>
+        <div id="ms-board" class="ms-board" aria-label="Minesweeper board"></div>
+        <div id="ms-status" class="mt-2 font-weight-bold"></div>
+        <button id="ms-toggle" class="btn btn-primary mt-2">Let Claude play</button>
+        <button id="ms-new" class="btn btn-outline-secondary mt-2 ml-2">New game</button>
+        <button id="ms-flagmode" class="btn btn-outline-secondary mt-2 ml-2" aria-pressed="false">Flag mode</button>
+        <div id="ms-cost" class="small text-muted mt-2"></div>
+      </div>
+      <div>
+        <h5>What it's thinking</h5>
+        <ul id="ms-log" class="list-unstyled small" style="max-height:420px; overflow:auto;"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  window.MS_CONFIG = {
+    proxyUrl: "https://bgcxjj324xcfvxmsfpbv627pp40xhisu.lambda-url.us-east-1.on.aws/",
+    rows: 9,
+    cols: 9,
+    mines: 10,
+    maxCalls: 40,
+  };
+</script>
+<script src="/scripts/minesweeper-engine.js"></script>
+<script src="/scripts/minesweeper-agent.js"></script>
+<style>
+  .ms-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 992px) { .ms-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+  #ms-log .err { color: #c0392b; }
+  .ms-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; max-width: 420px; background: #555; padding: 2px; }
+  .ms-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 700;
+    background: #b8bfc6; user-select: none; font-size: clamp(0.8rem, 3.5vw, 1.25rem); }
+  .ms-cell { cursor: pointer; }
+  .ms-cell.open { background: #eceff1; cursor: default; }
+  .ms-cell.mine { background: #e74c3c; }
+  .ms-cell.hl { outline: 3px solid #f1c40f; outline-offset: -3px; }
+  .ms-cell.n1 { color: #1e6fd9; } .ms-cell.n2 { color: #2e8b3d; } .ms-cell.n3 { color: #d93025; }
+  .ms-cell.n4 { color: #1a237e; } .ms-cell.n5 { color: #8e1b1b; } .ms-cell.n6 { color: #00838f; }
+  .ms-cell.n7 { color: #111; } .ms-cell.n8 { color: #777; }
+  .ms-cell.flag { color: #d93025; }
+</style>

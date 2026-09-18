@@ -1,5 +1,13 @@
 [
   {
+    "name": "Claude plays Doom & Minesweeper",
+    "description": "An LLM plays games live in your browser. In <a href=\"/doom/\">Doom</a> (the shareware episode) each turn the game freezes, a screenshot goes to Claude, and it picks a move. In <a href=\"/minesweeper/\">Minesweeper</a>, which you can play too, Claude gets the board as text and returns up to five moves. The page enforces the rules, so nothing is scripted, and it shows Claude's reasoning and a running cost estimate as it plays.<br><br><strong>Tech stack:</strong> Claude Haiku 4.5 through the Anthropic Messages API (vision for Doom, forced tool use for structured moves) &middot; js-dos v8 (DOSBox compiled to WebAssembly) &middot; vanilla JavaScript with a DOM-free Minesweeper engine &middot; Eleventy static site on AWS Amplify &middot; a Node.js 20 AWS Lambda behind a Function URL, deployed with AWS SAM, with the API key in AWS Secrets Manager and the prompts, origin allowlist, rate limits and daily spend cap all enforced server-side.",
+    "url": null,
+    "github": null,
+    "imageURL": null,
+    "galleryURL": null
+  },
+  {
     "name": "AWS Certified Solutions Architect",
     "description": "<div class=\"bg-white\" data-iframe-width=\"150\" data-iframe-height=\"270\" data-share-badge-id=\"5a147d48-f6f5-48e5-b9ae-3303f0d0ac27\" data-share-badge-host=\"https://www.credly.com\"></div><script type=\"text/javascript\" async src=\"//cdn.credly.com/assets/utilities/embed.js\"></script>",
     "url": "https://www.credly.com/badges/4705790f-6be3-4ab9-b365-e87439fe417f/public_url",
