@@ -1,6 +1,6 @@
 // Lambda Function URL handler: proxies one game state (Doom frame / Minesweeper board) to Claude and returns its move.
 // Env: ANTHROPIC_SECRET_ID (Secrets Manager name/ARN holding the key), ALLOWED_ORIGIN (comma- or |-separated),
-//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL)
+//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL), MINESWEEPER_EFFORT
 // Leave CORS unset on the Function URL itself; this handler sets the headers.
 
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager"; // bundled in the nodejs20.x runtime
@@ -38,6 +38,8 @@ const PRICES = {
 };
 // Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
 const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+const MS_EFFORT = EFFORTS.includes(process.env.MINESWEEPER_EFFORT) ? process.env.MINESWEEPER_EFFORT : "high";
 const PER_IP_PER_MIN = Number(process.env.PER_IP_PER_MIN || 30);
 const MAX_IMAGE_B64 = 200_000; // ~150KB JPEG
 
@@ -106,7 +108,7 @@ Always call the act tool. Keep "thought" to one short sentence.`,
   minesweeper: {
     modelEnv: "MINESWEEPER_MODEL",
     maxTokens: 6000, // thinking tokens count toward this; a cut-off answer would return no tool call
-    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "adaptive" }, output_config: { effort: "medium" } } : {}),
+    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "adaptive" }, output_config: { effort: MS_EFFORT } } : {}),
     system: `You are playing Minesweeper. The board is shown as text with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.

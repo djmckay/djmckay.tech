@@ -24,6 +24,11 @@ Parameters:
   Model:
     Type: String
     Default: claude-haiku-4-5-20251001
+  MinesweeperEffort:
+    Type: String
+    Default: high
+    AllowedValues: [low, medium, high, xhigh, max]
+    Description: Thinking effort for Minesweeper turns. Higher means better deduction but more output tokens per turn
   MinesweeperModel:
     Type: String
     Default: claude-sonnet-5
@@ -57,6 +62,7 @@ Resources:
           PER_IP_PER_MIN: !Ref PerIpPerMin
           MODEL: !Ref Model
           MINESWEEPER_MODEL: !Ref MinesweeperModel
+          MINESWEEPER_EFFORT: !Ref MinesweeperEffort
       # No Cors block: index.js sets the CORS headers itself, and doing both duplicates them.
       FunctionUrlConfig:
         AuthType: NONE
