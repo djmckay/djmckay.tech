@@ -1,0 +1,41 @@
+---
+layout: base.njk
+title: Claude plays Doom
+description: An LLM plays Doom in your browser, one screenshot at a time.
+permalink: /doom/index.html
+extraStyles:
+  - /css/landing-page.css
+  - https://v8.js-dos.com/latest/js-dos.css
+---
+<section class="py-5">
+  <div class="container">
+    <h1 class="mb-2">Claude plays Doom</h1>
+    <p class="text-muted">Each turn the game freezes, a screenshot goes to Claude, and it picks a move. Nothing here is scripted.</p>
+    <div class="doom-grid">
+      <div>
+        <div class="doom-stage"><div id="dos" style="width:100%; aspect-ratio:16/10;"></div></div>
+        <button id="doom-toggle" class="btn btn-primary mt-3" disabled>Let Claude play</button>
+        <div id="doom-cost" class="small text-muted mt-2"></div>
+      </div>
+      <div>
+        <h5>What it's thinking</h5>
+        <ul id="doom-log" class="list-unstyled small" style="max-height:420px; overflow:auto;"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  window.DOOM_CONFIG = {
+    bundleUrl: "/doom/doom.jsdos",
+    proxyUrl: "https://bgcxjj324xcfvxmsfpbv627pp40xhisu.lambda-url.us-east-1.on.aws/",
+    maxSteps: 150,
+  };
+</script>
+<script src="https://v8.js-dos.com/latest/js-dos.js"></script>
+<script src="/scripts/doom-agent.js"></script>
+<style>
+  #doom-log .err { color: #c0392b; }
+  .doom-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 992px) { .doom-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+</style>

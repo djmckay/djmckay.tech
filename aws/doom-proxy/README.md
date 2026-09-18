@@ -1,0 +1,48 @@
+# doom-proxy
+
+Lambda Function URL behind `/doom` and `/minesweeper`. The browser sends one game state (a JPEG
+frame for Doom, a text board for Minesweeper), the function asks Claude for the next move(s), and the
+API key never leaves AWS. Requests pick a game with a `game` field (default `doom`); each game's
+system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
+client can't change what the model is asked to do. Responses include estimated token usage and cost.
+
+## Deploy
+
+Requires the AWS SAM CLI and credentials for account 795091308067 (us-east-1).
+
+1. Create the secret once, outside the stack, so the key never enters CloudFormation.
+   Do it in the console (Secrets Manager > Store a new secret > "Other type", plain text) using the
+   default name `djmckay/anthropic-api-key`, or with the CLI, reading the value from your own
+   secret store rather than typing it inline.
+2. Deploy:
+
+```bash
+cd aws/doom-proxy
+sam build
+sam deploy --stack-name djmckay-doom-proxy --region us-east-1 --resolve-s3 \
+  --capabilities CAPABILITY_IAM
+```
+
+Use `--parameter-overrides AnthropicSecretName=<name>` if you chose a different secret name.
+The function's role is only allowed `secretsmanager:GetSecretValue` on that one secret.
+
+The stack output `FunctionUrl` goes into `proxyUrl` in `static-site/src/doom.njk`.
+
+Test locally-hosted pages by redeploying with `AllowedOrigin=http://localhost:8181`.
+
+## Cost controls (do these)
+
+- Reserved concurrency is 3 in the template, so at most 3 model calls run at once.
+- `DAILY_CALL_CAP` and `PER_IP_PER_MIN` are in-memory per Lambda instance, so they are best-effort.
+  Set a monthly spend limit on the API key's workspace in the Anthropic console.
+- Use a dedicated key for this function so it can be revoked on its own.
+
+## Troubleshooting
+
+- `403` from the Function URL before reaching the handler: newer accounts also need an
+  `lambda:InvokeFunction` permission for public Function URLs. Add it with
+  `aws lambda add-permission --function-name djmckay-doom-proxy --statement-id public-url-invoke --action lambda:InvokeFunction --principal '*' --invoked-via-function-url`.
+- `403 forbidden` from the handler: the request's `Origin` doesn't match `AllowedOrigin`.
+- `500 config` from the handler: it couldn't read the secret. Check the secret name, region and
+  the CloudWatch log line "secret fetch failed" for the error name.
+- The key is cached in memory per warm instance. After rotating it, redeploy or wait for instances to recycle.
