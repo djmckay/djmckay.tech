@@ -22,6 +22,10 @@ extraStyles:
       <div>
         <h5>What it's thinking</h5>
         <ul id="ms-log" class="list-unstyled small" style="max-height:420px; overflow:auto;"></ul>
+        <h5 class="mt-4">Claude's notebook</h5>
+        <p class="small text-muted mb-1">After each loss Claude writes itself a lesson. Lessons are saved only in this browser and shown to Claude in later games.</p>
+        <ul id="ms-notes" class="small pl-3"></ul>
+        <button id="ms-clearnotes" class="btn btn-sm btn-outline-secondary">Clear notebook</button>
       </div>
     </div>
   </div>
@@ -42,6 +46,7 @@ extraStyles:
   .ms-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 992px) { .ms-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
   #ms-log .err { color: #c0392b; }
+  #ms-log .lesson { font-style: italic; }
   .ms-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; max-width: 420px; background: #555; padding: 2px; }
   .ms-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 700;
     background: #b8bfc6; user-select: none; font-size: clamp(0.8rem, 3.5vw, 1.25rem); }

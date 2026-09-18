@@ -1,6 +1,6 @@
 // Lambda Function URL handler: proxies one game state (Doom frame / Minesweeper board) to Claude and returns its move.
 // Env: ANTHROPIC_SECRET_ID (Secrets Manager name/ARN holding the key), ALLOWED_ORIGIN (comma- or |-separated),
-//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL
+//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL), MINESWEEPER_EFFORT
 // Leave CORS unset on the Function URL itself; this handler sets the headers.
 
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager"; // bundled in the nodejs20.x runtime
@@ -34,13 +34,35 @@ const DAILY_USD_CAP = Number(process.env.DAILY_USD_CAP || 5);
 const PRICES = {
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
   "claude-haiku-4-5": { in: 1, out: 5 },
+  "claude-sonnet-5": { in: 2, out: 10 },
 };
+// Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
+const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+const MS_EFFORT = EFFORTS.includes(process.env.MINESWEEPER_EFFORT) ? process.env.MINESWEEPER_EFFORT : "high";
 const PER_IP_PER_MIN = Number(process.env.PER_IP_PER_MIN || 30);
 const MAX_IMAGE_B64 = 200_000; // ~150KB JPEG
 
 const ACTIONS = ["forward", "back", "left", "right", "strafe_left", "strafe_right", "fire", "use", "enter", "wait"];
 const MS_ACTIONS = ["reveal", "flag"];
 const MS_MAX_DIM = 16;
+
+const cell = (v) => String(v).padEnd(2);
+// Validates a board (array of row strings) and renders it as text with 0-indexed row/col headers.
+function formatBoard(board, label = "Board") {
+  if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_DIM) return null;
+  const cols = board[0]?.length;
+  if (!cols || cols > MS_MAX_DIM) return null;
+  for (const row of board) {
+    if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return null;
+  }
+  const header = "   " + [...Array(cols).keys()].map(cell).join("");
+  const lines = board.map((row, r) => String(r).padStart(2) + " " + [...row].map(cell).join(""));
+  return `${label} (${board.length} rows x ${cols} cols):\n${header}\n${lines.join("\n")}`;
+}
+// Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
+const cleanText = (s, n) => String(s ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const inBoard = (n) => Number.isInteger(n) && n >= 0 && n < MS_MAX_DIM;
 
 // Each game owns its prompt, tool and validation so the client can never choose them.
 const GAMES = {
@@ -84,12 +106,17 @@ Always call the act tool. Keep "thought" to one short sentence.`,
   },
 
   minesweeper: {
-    maxTokens: 400,
+    modelEnv: "MINESWEEPER_MODEL",
+    maxTokens: 6000, // thinking tokens count toward this; a cut-off answer would return no tool call
+    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "adaptive" }, output_config: { effort: MS_EFFORT } } : {}),
+    // A forced tool call tells the model to answer immediately, which starves adaptive thinking (measured: effort
+    // had no effect on output tokens). With thinking on, leave tool_choice on auto and let the prompt call the tool.
+    toolChoice: (model) => (thinksAdaptively(model) ? { type: "auto" } : undefined),
     system: `You are playing Minesweeper. The board is shown as text with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.
 Only make moves you can prove safe. If none exist, make the lowest-risk guess and say so. On an untouched board, reveal near the center. Never reveal a flagged cell.
-Each turn, call the play tool with 1-5 moves. Keep "thought" to one or two short sentences.`,
+Think the position through before you answer. Then reply only by calling the play tool with 1-5 moves, and keep "thought" under 60 words.`,
     tool: {
       name: "play",
       description: "Make 1-5 Minesweeper moves, applied in order.",
@@ -115,20 +142,17 @@ Each turn, call the play tool with 1-5 moves. Keep "thought" to one or two short
         required: ["thought", "moves"],
       },
     },
-    content({ board, minesLeft, note }) {
-      if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_DIM) return null;
-      const cols = board[0]?.length;
-      if (!cols || cols > MS_MAX_DIM) return null;
-      for (const row of board) {
-        if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return null;
-      }
-      const cell = (v) => String(v).padEnd(2);
-      const header = "   " + [...Array(cols).keys()].map(cell).join("");
-      const lines = board.map((row, r) => String(r).padStart(2) + " " + [...row].map(cell).join(""));
+    content({ board, minesLeft, note, lessons }) {
+      const text = formatBoard(board);
+      if (!text) return null;
       const left = Number.isInteger(minesLeft) ? minesLeft : "unknown";
+      const notes = (Array.isArray(lessons) ? lessons : []).filter((l) => typeof l === "string").slice(0, 8).map((l) => cleanText(l, 240)).filter(Boolean);
+      const notebook = notes.length
+        ? `\nYour notebook: lessons you wrote after earlier losses. They are advisory and may be imperfect; use them, but trust the board.\n${notes.map((l) => `- ${l}`).join("\n")}`
+        : "";
       return [{
         type: "text",
-        text: `Board (${board.length} rows x ${cols} cols):\n${header}\n${lines.join("\n")}\nMines not yet flagged: ${left}\nLast result: ${String(note || "none").slice(0, 300)}`,
+        text: `${text}\nMines not yet flagged: ${left}\nLast result: ${cleanText(note || "none", 300)}${notebook}`,
       }];
     },
     result(call) {
@@ -140,6 +164,39 @@ Each turn, call the play tool with 1-5 moves. Keep "thought" to one or two short
         .map(({ action, row, col }) => ({ action, row, col }));
       if (!moves.length) return null;
       return { thought: String(call.thought || "").slice(0, 300), moves };
+    },
+  },
+
+  // Post-mortem after a lost game: turns the loss into one reusable lesson.
+  "minesweeper-review": {
+    modelEnv: "MINESWEEPER_MODEL",
+    maxTokens: 600,
+    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "disabled" } } : {}),
+    system: `You are reviewing a lost Minesweeper game so you play better next time.
+You will see the board just before your fatal move, the move itself, the reasoning you gave at the time, and the final board with every mine shown as X.
+Work out why the move was unsafe: which numbers or constraints ruled it out, or whether it was really a guess and a safer cell existed. Then write ONE general lesson, at most 40 words, that you could apply in future games.
+State the pattern or rule. Do not mention coordinates from this particular board. Call the write_lesson tool.`,
+    tool: {
+      name: "write_lesson",
+      description: "Record one general lesson from a lost Minesweeper game.",
+      input_schema: {
+        type: "object",
+        properties: { lesson: { type: "string", maxLength: 300 } },
+        required: ["lesson"],
+      },
+    },
+    content({ before, after, fatal, thought }) {
+      const b = formatBoard(before, "Board before the fatal move");
+      const a = formatBoard(after, "Final board (X = mine)");
+      if (!b || !a || !inBoard(fatal?.row) || !inBoard(fatal?.col)) return null;
+      return [{
+        type: "text",
+        text: `${b}\n\nFatal move: reveal row ${fatal.row}, col ${fatal.col}, which was a mine.\nYour reasoning at the time: ${cleanText(thought, 400) || "(none)"}\n\n${a}`,
+      }];
+    },
+    result(call) {
+      const lesson = cleanText(call.lesson, 300);
+      return lesson ? { lesson } : null;
     },
   },
 };
@@ -198,6 +255,7 @@ export const handler = async (event) => {
   const content = game.content(input);
   if (!content) return reply(400, { error: "bad input" });
 
+  const model = (game.modelEnv && process.env[game.modelEnv]) || MODEL;
   let apiKey;
   try { apiKey = await getApiKey(); }
   catch (e) { console.error("secret fetch failed", e.name); return reply(500, { error: "config" }); }
@@ -210,23 +268,30 @@ export const handler = async (event) => {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
+      ...(game.extras?.(model) ?? {}),
       max_tokens: game.maxTokens,
       system: game.system,
       tools: [game.tool],
-      tool_choice: { type: "tool", name: game.tool.name },
+      tool_choice: game.toolChoice?.(model) ?? { type: "tool", name: game.tool.name },
       messages: [{ role: "user", content }],
     }),
   });
-  if (!res.ok) return reply(502, { error: "upstream", status: res.status });
+  if (!res.ok) {
+    console.error("upstream error", res.status, (await res.text()).slice(0, 300));
+    return reply(502, { error: "upstream", status: res.status });
+  }
 
   const data = await res.json();
   const call = data.content?.find((b) => b.type === "tool_use")?.input;
   const out = call && game.result(call);
-  if (!out) return reply(502, { error: "no action" });
+  if (!out) {
+    console.error("no usable action", data.stop_reason, JSON.stringify(call)?.slice(0, 300));
+    return reply(502, { error: "no action" });
+  }
   const inputTokens = data.usage?.input_tokens ?? 0;
   const outputTokens = data.usage?.output_tokens ?? 0;
-  const price = PRICES[MODEL];
+  const price = PRICES[model];
   const costUsd = price ? (inputTokens * price.in + outputTokens * price.out) / 1e6 : null;
   if (costUsd) dayCost += costUsd;
   return reply(200, { ...out, usage: { inputTokens, outputTokens, costUsd } });

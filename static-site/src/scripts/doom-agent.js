@@ -46,18 +46,19 @@
     codes.forEach((k) => ci.sendKeyEvent(k, false));
   }
 
+  // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const res = await fetch(cfg.proxyUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ image, history, stats: `Step ${steps}.` }),
-    });
-    if (!res.ok) {
-      const err = new Error(`proxy ${res.status}`);
-      err.status = res.status;
-      throw err;
+    const body = JSON.stringify({ image, history, stats: `Step ${steps}.` });
+    for (let attempt = 1; ; attempt++) {
+      const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
+      if (res.ok) return res.json();
+      if (res.status < 500 || attempt >= 3) {
+        const err = new Error(`proxy ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      await sleep(800 * attempt);
     }
-    return res.json();
   }
 
   async function loop() {

@@ -6,6 +6,13 @@ API key never leaves AWS. Requests pick a game with a `game` field (default `doo
 system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
 client can't change what the model is asked to do. Responses include estimated token usage and cost.
 
+Games: `doom` (default), `minesweeper`, and `minesweeper-review`. After Claude loses a Minesweeper game the
+page sends the board before the fatal move, the move, Claude's reasoning at the time and the final board;
+the review call returns one general lesson. The page keeps up to 8 lessons in the visitor's own
+`localStorage` and sends them back as an advisory "notebook" with later `minesweeper` requests. The proxy
+treats them as untrusted text: strings only, printable ASCII, 240 characters each, at most 8, placed in the
+user message (never the system prompt).
+
 ## Deploy
 
 Requires the AWS SAM CLI and credentials for account 795091308067 (us-east-1).
@@ -28,7 +35,12 @@ The function's role is only allowed `secretsmanager:GetSecretValue` on that one 
 
 The stack output `FunctionUrl` goes into `proxyUrl` in `static-site/src/doom.njk`.
 
-Test locally-hosted pages by redeploying with `AllowedOrigin=http://localhost:8181`.
+The site is served on both `djmckay.tech` and `www.djmckay.tech`, and CORS is an exact-match check,
+so both must be in `AllowedOrigin` (the default has both). A missing origin shows up in the browser as
+a `204` preflight followed by no game request. Note `sam deploy` reuses a stack's previous parameter
+values, so pass `--parameter-overrides "AllowedOrigin=..."` explicitly when changing it.
+
+Test locally-hosted pages by adding `http://localhost:8181` to `AllowedOrigin`, separated by `|`.
 
 ## Cost controls (do these)
 
