@@ -16,7 +16,7 @@
   };
   const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
   const EFFORTS = ["low", "medium"];
-  const DEFAULTS = { level: "beginner", model: "sonnet", effort: "medium", verifier: false, vModel: "sonnet", vEffort: "medium" };
+  const DEFAULTS = { level: "beginner", model: "sonnet", effort: "low", verifier: false, vModel: "sonnet", vEffort: "low" };
   const SETTINGS_KEY = "ms-settings-v1";
 
   function sanitize(v) {
@@ -107,10 +107,11 @@
   const finished = () => game.status === "won" || game.status === "lost";
 
   // ---- settings panel
+  // Measured on Beginner boards against the live proxy (5 / 5 / 3 games); Intermediate and Expert are untested with Claude.
   const HINTS = {
-    haiku: "Haiku: a few seconds and about a fifth of a cent per turn on small boards, but it lost all 5 of the test games.",
-    "sonnet-low": "Sonnet at low effort: quicker and cheaper than medium, but I haven't measured it yet.",
-    "sonnet-medium": "Sonnet at medium effort thinks for 20-45 seconds and costs roughly 2-5 cents per turn; it cleared 4 of 4 test boards.",
+    haiku: "Haiku: about 10 seconds and under a cent per Beginner game, but it lost all 5 test games.",
+    "sonnet-low": "Sonnet, low effort: 2-5 minutes and about 20 cents per Beginner game; it won 4 of 5 test games.",
+    "sonnet-medium": "Sonnet, medium effort: 2-5 minutes and about 20 cents per Beginner game; it won 2 of 3 test games.",
   };
   const hintFor = (model, effort) => HINTS[model === "haiku" ? "haiku" : `sonnet-${effort}`];
 
@@ -127,9 +128,9 @@
     for (const id of ["ms-level", "ms-model", "ms-verify", "ms-vmodel"]) $(id).disabled = running;
     const parts = [hintFor(settings.model, settings.effort)];
     if (settings.verifier) {
-      parts.push(`Verifier (${settings.vModel === "haiku" ? "Haiku" : `Sonnet, ${settings.vEffort}`}) adds one Claude call per turn, and a second round when it rejects a move.`);
+      parts.push(`Verifier (${settings.vModel === "haiku" ? "Haiku" : `Sonnet, ${settings.vEffort}`}) adds a Claude call per turn, and a revision when it objects. In test games it caught many bad moves, but a Haiku player with a Sonnet verifier still lost all 6.`);
     }
-    if (settings.level === "expert") parts.push("Expert needs many turns and may not finish inside its per-game budget.");
+    if (settings.level !== "beginner") parts.push("Intermediate and Expert haven't been tested with Claude yet; expect many more turns, and games may stop at their budget.");
     $("ms-hint").textContent = parts.join(" ");
   }
 
