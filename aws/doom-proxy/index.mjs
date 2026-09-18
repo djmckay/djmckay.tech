@@ -109,11 +109,14 @@ Always call the act tool. Keep "thought" to one short sentence.`,
     modelEnv: "MINESWEEPER_MODEL",
     maxTokens: 6000, // thinking tokens count toward this; a cut-off answer would return no tool call
     extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "adaptive" }, output_config: { effort: MS_EFFORT } } : {}),
+    // A forced tool call tells the model to answer immediately, which starves adaptive thinking (measured: effort
+    // had no effect on output tokens). With thinking on, leave tool_choice on auto and let the prompt call the tool.
+    toolChoice: (model) => (thinksAdaptively(model) ? { type: "auto" } : undefined),
     system: `You are playing Minesweeper. The board is shown as text with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.
 Only make moves you can prove safe. If none exist, make the lowest-risk guess and say so. On an untouched board, reveal near the center. Never reveal a flagged cell.
-Each turn, call the play tool with 1-5 moves. Keep "thought" under 60 words.`,
+Think the position through before you answer. Then reply only by calling the play tool with 1-5 moves, and keep "thought" under 60 words.`,
     tool: {
       name: "play",
       description: "Make 1-5 Minesweeper moves, applied in order.",
@@ -270,7 +273,7 @@ export const handler = async (event) => {
       max_tokens: game.maxTokens,
       system: game.system,
       tools: [game.tool],
-      tool_choice: { type: "tool", name: game.tool.name },
+      tool_choice: game.toolChoice?.(model) ?? { type: "tool", name: game.tool.name },
       messages: [{ role: "user", content }],
     }),
   });
