@@ -26,9 +26,9 @@ Parameters:
     Default: claude-haiku-4-5-20251001
   MinesweeperEffort:
     Type: String
-    Default: high
+    Default: medium
     AllowedValues: [low, medium, high, xhigh, max]
-    Description: Thinking effort for Minesweeper turns. Higher means better deduction but more output tokens per turn
+    Description: Default thinking effort when a request does not choose one. high hit the 6000-token / 60 s limit in testing; the public presets only offer low and medium
   MinesweeperModel:
     Type: String
     Default: claude-sonnet-5

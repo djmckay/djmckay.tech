@@ -9,10 +9,51 @@ extraStyles:
 <section class="py-5">
   <div class="container">
     <h1 class="mb-2">Claude plays Minesweeper</h1>
-    <p class="text-muted">Play it yourself (click to reveal, right-click or Flag mode to flag) or let Claude try. Claude sees the board as text and picks up to five moves per turn. The page enforces the rules, so it can't cheat and has to reason its way out.</p>
+    <p class="text-muted">Play it yourself (click to reveal, right-click or Flag mode to flag) or let Claude try. Claude sees the board as text and picks several moves per turn. The page enforces the rules, so it can't cheat and has to reason its way out.</p>
+
+    <div class="ms-settings mb-3" aria-label="Game settings">
+      <label>Level
+        <select id="ms-level" class="form-control form-control-sm">
+          <option value="beginner">Beginner (8×8, 10 mines)</option>
+          <option value="intermediate">Intermediate (16×16, 40 mines)</option>
+          <option value="expert">Expert (30×16, 99 mines)</option>
+        </select>
+      </label>
+      <label>Player model
+        <select id="ms-model" class="form-control form-control-sm">
+          <option value="haiku">Haiku 4.5</option>
+          <option value="sonnet">Sonnet 5</option>
+        </select>
+      </label>
+      <label>Thinking effort
+        <select id="ms-effort" class="form-control form-control-sm">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+        </select>
+      </label>
+      <label class="ms-check">
+        <input type="checkbox" id="ms-verify"> Verifier reviews each move
+      </label>
+      <div id="ms-vrow" class="ms-vrow" hidden>
+        <label>Verifier model
+          <select id="ms-vmodel" class="form-control form-control-sm">
+            <option value="haiku">Haiku 4.5</option>
+            <option value="sonnet">Sonnet 5</option>
+          </select>
+        </label>
+        <label>Verifier effort
+          <select id="ms-veffort" class="form-control form-control-sm">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+          </select>
+        </label>
+      </div>
+      <p id="ms-hint" class="small text-muted mb-0 ms-hint"></p>
+    </div>
+
     <div class="ms-grid">
       <div>
-        <div id="ms-board" class="ms-board" aria-label="Minesweeper board"></div>
+        <div class="ms-boardwrap"><div id="ms-board" class="ms-board" aria-label="Minesweeper board"></div></div>
         <div id="ms-status" class="mt-2 font-weight-bold"></div>
         <button id="ms-toggle" class="btn btn-primary mt-2">Let Claude play</button>
         <button id="ms-new" class="btn btn-outline-secondary mt-2 ml-2">New game</button>
@@ -34,23 +75,29 @@ extraStyles:
 <script>
   window.MS_CONFIG = {
     proxyUrl: "https://bgcxjj324xcfvxmsfpbv627pp40xhisu.lambda-url.us-east-1.on.aws/",
-    rows: 9,
-    cols: 9,
-    mines: 10,
-    maxCalls: 40,
   };
 </script>
 <script src="/scripts/minesweeper-engine.js"></script>
 <script src="/scripts/minesweeper-agent.js"></script>
 <style>
+  .ms-settings { display: grid; gap: .75rem 1rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
+  .ms-settings label { margin: 0; font-size: .85rem; font-weight: 600; }
+  .ms-settings .ms-check { display: flex; align-items: center; gap: .5rem; font-weight: 600; padding-bottom: .35rem; }
+  .ms-settings .ms-vrow { display: contents; }
+  .ms-settings .ms-vrow[hidden] { display: none; }
+  .ms-hint { grid-column: 1 / -1; }
   .ms-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 992px) { .ms-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
   #ms-log .err { color: #c0392b; }
   #ms-log .lesson { font-style: italic; }
-  .ms-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; max-width: 420px; background: #555; padding: 2px; }
-  .ms-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 700;
-    background: #b8bfc6; user-select: none; font-size: clamp(0.8rem, 3.5vw, 1.25rem); }
-  .ms-cell { cursor: pointer; }
+  #ms-log .verify { color: #1e6fd9; }
+  #ms-log .verify-warn { color: #b7791f; }
+  #ms-log .verify-bad { color: #c0392b; }
+  /* The board scrolls sideways inside its wrapper, so the 30-column Expert board never widens the page. */
+  .ms-boardwrap { max-width: 100%; overflow-x: auto; }
+  .ms-board { display: grid; gap: 2px; background: #555; padding: 2px; width: max-content; }
+  .ms-cell { width: var(--cell); height: var(--cell); display: flex; align-items: center; justify-content: center; font-weight: 700;
+    background: #b8bfc6; user-select: none; font-size: var(--font); line-height: 1; cursor: pointer; }
   .ms-cell.open { background: #eceff1; cursor: default; }
   .ms-cell.mine { background: #e74c3c; }
   .ms-cell.hl { outline: 3px solid #f1c40f; outline-offset: -3px; }

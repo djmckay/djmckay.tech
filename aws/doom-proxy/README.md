@@ -6,7 +6,15 @@ API key never leaves AWS. Requests pick a game with a `game` field (default `doo
 system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
 client can't change what the model is asked to do. Responses include estimated token usage and cost.
 
-Games: `doom` (default), `minesweeper`, and `minesweeper-review`. After Claude loses a Minesweeper game the
+Games: `doom` (default), `minesweeper`, `minesweeper-verify` and `minesweeper-review`.
+
+Minesweeper requests may carry `config: {model: "haiku"|"sonnet", effort: "low"|"medium"}`. The proxy maps these
+names to model IDs itself; anything else (including other models, `high`/`xhigh`/`max`, or junk) falls back to the
+stack defaults (`MINESWEEPER_MODEL`, `MINESWEEPER_EFFORT`), so pages that send no config keep working. Effort only
+applies to Sonnet (Haiku has no adaptive thinking). Boards may be up to 16 rows x 30 columns; `mines` and
+`maxMoves` (1-15) are optional. `minesweeper-verify` takes the board plus the player's `proposed` moves and returns a
+verdict per move (`approve`, `unproven` or `wrong`) with a short reason, so a page can run a second Claude as referee.
+Every Minesweeper prompt starts with the basic rules of the game. After Claude loses a Minesweeper game the
 page sends the board before the fatal move, the move, Claude's reasoning at the time and the final board;
 the review call returns one general lesson. The page keeps up to 8 lessons in the visitor's own
 `localStorage` and sends them back as an advisory "notebook" with later `minesweeper` requests. The proxy
