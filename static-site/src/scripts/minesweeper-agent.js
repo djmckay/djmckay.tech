@@ -95,17 +95,34 @@
     if (usage.costUsd == null) spent.priced = false; else spent.usd += usage.costUsd;
   }
 
+  // The proxy answers 402 {error:"budget"} when the API account is out of budget, and 429 for our own limits.
+  async function proxyError(res) {
+    const err = new Error(`proxy ${res.status}`);
+    err.status = res.status;
+    try { Object.assign(err, await res.json()); } catch { /* body wasn't JSON */ }
+    return err;
+  }
+
+  function explain(e) {
+    if (e.status === 402 || e.error === "budget") {
+      const when = e.until ? ` It should reset around ${e.until}.` : "";
+      return `The demo's API budget is used up for now.${when} Please check back later.`;
+    }
+    if (e.status === 429) {
+      return /daily/.test(e.error || "")
+        ? "Today's budget for this demo is used up. Please try again tomorrow."
+        : "Rate limited, try again in a minute.";
+    }
+    return `Error: ${e.message}`;
+  }
+
   // Retry transient server errors (5xx) so one bad response doesn't end the game.
   async function post(payload) {
     const body = JSON.stringify(payload);
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
-      if (res.status < 500 || attempt >= 3) {
-        const err = new Error(`proxy ${res.status}`);
-        err.status = res.status;
-        throw err;
-      }
+      if (res.status < 500 || attempt >= 3) throw await proxyError(res);
       await sleep(800 * attempt);
     }
   }
@@ -144,7 +161,7 @@
         reply = await decide();
       } catch (e) {
         if (mine !== epoch) return;
-        log(e.status === 429 ? "Rate limited, try again in a minute." : `Error: ${e.message}`, "err");
+        log(explain(e), "err");
         break;
       }
       if (mine !== epoch) return;

@@ -51,6 +51,13 @@ Test locally-hosted pages by adding `http://localhost:8181` to `AllowedOrigin`, 
 
 ## Troubleshooting
 
+- `402 {"error":"budget","until":"YYYY-MM-DD"|null}`: Anthropic refused the request because the account's spend
+  limit or credit balance is used up (its 400 message contains "usage limit" or "credit balance"). The pages
+  show a friendly message and do not retry. The proxy remembers this for 2 minutes and answers 402 without
+  calling Anthropic, so it recovers by itself shortly after the limit is raised in the Anthropic Console.
+- `429` with `daily budget reached` / `daily cap reached`: this proxy's own per-instance daily caps. `slow down`
+  is the per-IP limit. The pages word these differently ("try again tomorrow" vs "in a minute").
+
 - `403` from the Function URL before reaching the handler: newer accounts also need an
   `lambda:InvokeFunction` permission for public Function URLs. Add it with
   `aws lambda add-permission --function-name djmckay-doom-proxy --statement-id public-url-invoke --action lambda:InvokeFunction --principal '*' --invoked-via-function-url`.
