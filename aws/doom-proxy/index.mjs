@@ -1,6 +1,6 @@
 // Lambda Function URL handler: proxies one game state (Doom frame / Minesweeper board) to Claude and returns its move.
 // Env: ANTHROPIC_SECRET_ID (Secrets Manager name/ARN holding the key), ALLOWED_ORIGIN (comma- or |-separated),
-//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL
+//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL)
 // Leave CORS unset on the Function URL itself; this handler sets the headers.
 
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager"; // bundled in the nodejs20.x runtime
@@ -34,7 +34,10 @@ const DAILY_USD_CAP = Number(process.env.DAILY_USD_CAP || 5);
 const PRICES = {
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
   "claude-haiku-4-5": { in: 1, out: 5 },
+  "claude-sonnet-5": { in: 2, out: 10 },
 };
+// Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
+const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
 const PER_IP_PER_MIN = Number(process.env.PER_IP_PER_MIN || 30);
 const MAX_IMAGE_B64 = 200_000; // ~150KB JPEG
 
@@ -101,7 +104,9 @@ Always call the act tool. Keep "thought" to one short sentence.`,
   },
 
   minesweeper: {
-    maxTokens: 800, // headroom: a long "thought" plus five moves must not be cut off mid-tool-call
+    modelEnv: "MINESWEEPER_MODEL",
+    maxTokens: 6000, // thinking tokens count toward this; a cut-off answer would return no tool call
+    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "adaptive" }, output_config: { effort: "medium" } } : {}),
     system: `You are playing Minesweeper. The board is shown as text with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.
@@ -159,7 +164,9 @@ Each turn, call the play tool with 1-5 moves. Keep "thought" under 60 words.`,
 
   // Post-mortem after a lost game: turns the loss into one reusable lesson.
   "minesweeper-review": {
-    maxTokens: 300,
+    modelEnv: "MINESWEEPER_MODEL",
+    maxTokens: 600,
+    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "disabled" } } : {}),
     system: `You are reviewing a lost Minesweeper game so you play better next time.
 You will see the board just before your fatal move, the move itself, the reasoning you gave at the time, and the final board with every mine shown as X.
 Work out why the move was unsafe: which numbers or constraints ruled it out, or whether it was really a guess and a safer cell existed. Then write ONE general lesson, at most 40 words, that you could apply in future games.
@@ -243,6 +250,7 @@ export const handler = async (event) => {
   const content = game.content(input);
   if (!content) return reply(400, { error: "bad input" });
 
+  const model = (game.modelEnv && process.env[game.modelEnv]) || MODEL;
   let apiKey;
   try { apiKey = await getApiKey(); }
   catch (e) { console.error("secret fetch failed", e.name); return reply(500, { error: "config" }); }
@@ -255,7 +263,8 @@ export const handler = async (event) => {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
+      ...(game.extras?.(model) ?? {}),
       max_tokens: game.maxTokens,
       system: game.system,
       tools: [game.tool],
@@ -277,7 +286,7 @@ export const handler = async (event) => {
   }
   const inputTokens = data.usage?.input_tokens ?? 0;
   const outputTokens = data.usage?.output_tokens ?? 0;
-  const price = PRICES[MODEL];
+  const price = PRICES[model];
   const costUsd = price ? (inputTokens * price.in + outputTokens * price.out) / 1e6 : null;
   if (costUsd) dayCost += costUsd;
   return reply(200, { ...out, usage: { inputTokens, outputTokens, costUsd } });

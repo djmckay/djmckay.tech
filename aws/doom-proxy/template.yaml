@@ -24,6 +24,10 @@ Parameters:
   Model:
     Type: String
     Default: claude-haiku-4-5-20251001
+  MinesweeperModel:
+    Type: String
+    Default: claude-sonnet-5
+    Description: Model for Minesweeper and its post-mortems (Doom uses Model)
 
 Resources:
   DoomProxyFunction:
@@ -35,7 +39,7 @@ Resources:
       Runtime: nodejs20.x
       Architectures: [arm64]
       MemorySize: 256
-      Timeout: 20
+      Timeout: 60 # a thinking model can take well over 20s per turn
       # Hard ceiling on parallel model calls, and so on spend rate.
       ReservedConcurrentExecutions: 3
       Policies:
@@ -52,6 +56,7 @@ Resources:
           DAILY_USD_CAP: !Ref DailyUsdCap
           PER_IP_PER_MIN: !Ref PerIpPerMin
           MODEL: !Ref Model
+          MINESWEEPER_MODEL: !Ref MinesweeperModel
       # No Cors block: index.js sets the CORS headers itself, and doing both duplicates them.
       FunctionUrlConfig:
         AuthType: NONE

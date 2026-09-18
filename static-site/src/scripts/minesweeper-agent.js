@@ -139,6 +139,7 @@
     let fatal = null;
     while (running && !finished() && calls < cfg.maxCalls) {
       let reply;
+      $("ms-status").textContent = "Claude is thinking...";
       try {
         reply = await decide();
       } catch (e) {
@@ -170,6 +171,7 @@
       stuck = anyOk ? 0 : stuck + 1;
       if (stuck >= STUCK_LIMIT) { log("Claude got stuck making invalid moves.", "err"); break; }
     }
+    render(); // clears the "thinking" status
     stop();
     if (game.status === "won") log("Cleared the board.");
     else if (game.status === "lost") {
