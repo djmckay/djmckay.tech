@@ -84,12 +84,12 @@ Always call the act tool. Keep "thought" to one short sentence.`,
   },
 
   minesweeper: {
-    maxTokens: 400,
+    maxTokens: 800, // headroom: a long "thought" plus five moves must not be cut off mid-tool-call
     system: `You are playing Minesweeper. The board is shown as text with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.
 Only make moves you can prove safe. If none exist, make the lowest-risk guess and say so. On an untouched board, reveal near the center. Never reveal a flagged cell.
-Each turn, call the play tool with 1-5 moves. Keep "thought" to one or two short sentences.`,
+Each turn, call the play tool with 1-5 moves. Keep "thought" under 60 words.`,
     tool: {
       name: "play",
       description: "Make 1-5 Minesweeper moves, applied in order.",
@@ -218,12 +218,18 @@ export const handler = async (event) => {
       messages: [{ role: "user", content }],
     }),
   });
-  if (!res.ok) return reply(502, { error: "upstream", status: res.status });
+  if (!res.ok) {
+    console.error("upstream error", res.status, (await res.text()).slice(0, 300));
+    return reply(502, { error: "upstream", status: res.status });
+  }
 
   const data = await res.json();
   const call = data.content?.find((b) => b.type === "tool_use")?.input;
   const out = call && game.result(call);
-  if (!out) return reply(502, { error: "no action" });
+  if (!out) {
+    console.error("no usable action", data.stop_reason, JSON.stringify(call)?.slice(0, 300));
+    return reply(502, { error: "no action" });
+  }
   const inputTokens = data.usage?.input_tokens ?? 0;
   const outputTokens = data.usage?.output_tokens ?? 0;
   const price = PRICES[MODEL];
