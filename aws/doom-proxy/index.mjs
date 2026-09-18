@@ -201,6 +201,13 @@ State the pattern or rule. Do not mention coordinates from this particular board
   },
 };
 
+// Anthropic answers 400 when the account's spend limit or credit balance is exhausted. Recognise it so visitors get
+// a clear message, and remember it briefly so the proxy does not keep calling an API that will refuse.
+const BUDGET_ERROR = /usage limit|credit balance/i;
+const BUDGET_BACKOFF_MS = 2 * 60_000;
+let budgetBlockedUntil = 0;
+let budgetResets = null; // e.g. "2026-10-01", parsed from Anthropic's message when present
+
 // Best-effort limits. Lambda instances are ephemeral, so also set reserved concurrency
 // and a monthly spend limit in the Anthropic console.
 const ipHits = new Map();
@@ -243,6 +250,8 @@ export const handler = async (event) => {
   if (method !== "POST") return reply(405, { error: "method not allowed" });
   if (!ALLOWED_ORIGINS.includes(reqOrigin)) return reply(403, { error: "forbidden" });
 
+  if (Date.now() < budgetBlockedUntil) return reply(402, { error: "budget", until: budgetResets });
+
   const why = limited(event.requestContext?.http?.sourceIp || "unknown");
   if (why) return reply(429, { error: why });
 
@@ -278,7 +287,13 @@ export const handler = async (event) => {
     }),
   });
   if (!res.ok) {
-    console.error("upstream error", res.status, (await res.text()).slice(0, 300));
+    const text = (await res.text()).slice(0, 400);
+    console.error("upstream error", res.status, text);
+    if (res.status === 400 && BUDGET_ERROR.test(text)) {
+      budgetResets = text.match(/\bon (\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+      budgetBlockedUntil = Date.now() + BUDGET_BACKOFF_MS;
+      return reply(402, { error: "budget", until: budgetResets });
+    }
     return reply(502, { error: "upstream", status: res.status });
   }
 
