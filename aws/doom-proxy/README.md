@@ -6,6 +6,13 @@ API key never leaves AWS. Requests pick a game with a `game` field (default `doo
 system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
 client can't change what the model is asked to do. Responses include estimated token usage and cost.
 
+Games: `doom` (default), `minesweeper`, and `minesweeper-review`. After Claude loses a Minesweeper game the
+page sends the board before the fatal move, the move, Claude's reasoning at the time and the final board;
+the review call returns one general lesson. The page keeps up to 8 lessons in the visitor's own
+`localStorage` and sends them back as an advisory "notebook" with later `minesweeper` requests. The proxy
+treats them as untrusted text: strings only, printable ASCII, 240 characters each, at most 8, placed in the
+user message (never the system prompt).
+
 ## Deploy
 
 Requires the AWS SAM CLI and credentials for account 795091308067 (us-east-1).

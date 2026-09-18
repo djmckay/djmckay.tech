@@ -8,6 +8,18 @@
 
   let game, running, calls, note, stuck;
   let flagMode = false; // touch-friendly alternative to right-click
+
+  // The notebook lives only in this browser, so one visitor's lessons never reach anyone else's prompts.
+  const NOTES_KEY = "ms-notebook-v1";
+  const MAX_NOTES = 8;
+  const loadNotes = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(NOTES_KEY) || "[]");
+      return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, MAX_NOTES) : [];
+    } catch { return []; }
+  };
+  const saveNotes = () => { try { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); } catch { /* storage unavailable */ } };
+  let notes = loadNotes();
   let epoch = 0; // bumped on reset so a stale in-flight loop can tell it was superseded
   const spent = { usd: 0, tokens: 0, priced: true };
 
@@ -56,9 +68,36 @@
 
   const finished = () => game.status === "won" || game.status === "lost";
 
+  function renderNotes() {
+    const list = $("ms-notes");
+    if (!notes.length) {
+      const li = document.createElement("li");
+      li.className = "text-muted";
+      li.textContent = "Empty. Claude writes a lesson here after each loss.";
+      list.replaceChildren(li);
+    } else {
+      list.replaceChildren(...notes.map((n) => Object.assign(document.createElement("li"), { textContent: n })));
+    }
+    $("ms-clearnotes").disabled = !notes.length;
+  }
+
+  function addNote(text) {
+    const clean = text.trim();
+    if (!clean) return;
+    notes = [clean, ...notes.filter((n) => n.toLowerCase() !== clean.toLowerCase())].slice(0, MAX_NOTES);
+    saveNotes();
+    renderNotes();
+  }
+
+  function addUsage(usage) {
+    if (!usage) return;
+    spent.tokens += usage.inputTokens + usage.outputTokens;
+    if (usage.costUsd == null) spent.priced = false; else spent.usd += usage.costUsd;
+  }
+
   // Retry transient server errors (5xx) so one bad response doesn't end the game.
-  async function decide() {
-    const body = JSON.stringify({ game: "minesweeper", board: game.toRows(), minesLeft: game.flagsLeft(), note });
+  async function post(payload) {
+    const body = JSON.stringify(payload);
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -71,8 +110,33 @@
     }
   }
 
+  const decide = () =>
+    post({ game: "minesweeper", board: game.toRows(), minesLeft: game.flagsLeft(), note, lessons: notes });
+
+  // After a loss, ask Claude for one reusable lesson and add it to the notebook.
+  async function reflect(fatal, mine) {
+    log("Writing a lesson from the loss...");
+    try {
+      const reply = await post({
+        game: "minesweeper-review",
+        before: fatal.before,
+        after: game.toRows(),
+        fatal: { row: fatal.row, col: fatal.col },
+        thought: fatal.thought,
+      });
+      if (mine !== epoch) return;
+      addUsage(reply.usage);
+      showCost();
+      log(`Lesson: ${reply.lesson}`, "lesson");
+      addNote(reply.lesson);
+    } catch (e) {
+      if (mine === epoch) log("Could not write a lesson this time.", "err");
+    }
+  }
+
   async function loop() {
     const mine = epoch;
+    let fatal = null;
     while (running && !finished() && calls < cfg.maxCalls) {
       let reply;
       try {
@@ -84,10 +148,7 @@
       }
       if (mine !== epoch) return;
       calls++;
-      if (reply.usage) {
-        spent.tokens += reply.usage.inputTokens + reply.usage.outputTokens;
-        if (reply.usage.costUsd == null) spent.priced = false; else spent.usd += reply.usage.costUsd;
-      }
+      addUsage(reply.usage);
       showCost();
       log(reply.thought);
 
@@ -95,7 +156,9 @@
       let anyOk = false;
       for (const m of reply.moves) {
         if (mine !== epoch || !running || finished()) break;
+        const before = game.toRows();
         const res = m.action === "flag" ? game.flag(m.row, m.col) : game.reveal(m.row, m.col);
+        if (game.status === "lost") fatal = { row: m.row, col: m.col, before, thought: reply.thought };
         anyOk ||= res.ok;
         results.push(`${m.action} ${res.msg}`);
         render([[m.row, m.col]]);
@@ -109,7 +172,10 @@
     }
     stop();
     if (game.status === "won") log("Cleared the board.");
-    else if (game.status === "lost") log("Hit a mine.");
+    else if (game.status === "lost") {
+      log("Hit a mine.");
+      if (fatal && mine === epoch) await reflect(fatal, mine);
+    }
     else if (calls >= cfg.maxCalls) log(`Reached the ${cfg.maxCalls}-turn limit for this game.`);
   }
 
@@ -173,6 +239,8 @@
     loop();
   });
   $("ms-new").addEventListener("click", reset);
+  $("ms-clearnotes").addEventListener("click", () => { notes = []; saveNotes(); renderNotes(); });
 
+  renderNotes();
   reset();
 })();

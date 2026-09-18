@@ -42,6 +42,23 @@ const ACTIONS = ["forward", "back", "left", "right", "strafe_left", "strafe_righ
 const MS_ACTIONS = ["reveal", "flag"];
 const MS_MAX_DIM = 16;
 
+const cell = (v) => String(v).padEnd(2);
+// Validates a board (array of row strings) and renders it as text with 0-indexed row/col headers.
+function formatBoard(board, label = "Board") {
+  if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_DIM) return null;
+  const cols = board[0]?.length;
+  if (!cols || cols > MS_MAX_DIM) return null;
+  for (const row of board) {
+    if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return null;
+  }
+  const header = "   " + [...Array(cols).keys()].map(cell).join("");
+  const lines = board.map((row, r) => String(r).padStart(2) + " " + [...row].map(cell).join(""));
+  return `${label} (${board.length} rows x ${cols} cols):\n${header}\n${lines.join("\n")}`;
+}
+// Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
+const cleanText = (s, n) => String(s ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const inBoard = (n) => Number.isInteger(n) && n >= 0 && n < MS_MAX_DIM;
+
 // Each game owns its prompt, tool and validation so the client can never choose them.
 const GAMES = {
   doom: {
@@ -115,20 +132,17 @@ Each turn, call the play tool with 1-5 moves. Keep "thought" under 60 words.`,
         required: ["thought", "moves"],
       },
     },
-    content({ board, minesLeft, note }) {
-      if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_DIM) return null;
-      const cols = board[0]?.length;
-      if (!cols || cols > MS_MAX_DIM) return null;
-      for (const row of board) {
-        if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return null;
-      }
-      const cell = (v) => String(v).padEnd(2);
-      const header = "   " + [...Array(cols).keys()].map(cell).join("");
-      const lines = board.map((row, r) => String(r).padStart(2) + " " + [...row].map(cell).join(""));
+    content({ board, minesLeft, note, lessons }) {
+      const text = formatBoard(board);
+      if (!text) return null;
       const left = Number.isInteger(minesLeft) ? minesLeft : "unknown";
+      const notes = (Array.isArray(lessons) ? lessons : []).filter((l) => typeof l === "string").slice(0, 8).map((l) => cleanText(l, 240)).filter(Boolean);
+      const notebook = notes.length
+        ? `\nYour notebook: lessons you wrote after earlier losses. They are advisory and may be imperfect; use them, but trust the board.\n${notes.map((l) => `- ${l}`).join("\n")}`
+        : "";
       return [{
         type: "text",
-        text: `Board (${board.length} rows x ${cols} cols):\n${header}\n${lines.join("\n")}\nMines not yet flagged: ${left}\nLast result: ${String(note || "none").slice(0, 300)}`,
+        text: `${text}\nMines not yet flagged: ${left}\nLast result: ${cleanText(note || "none", 300)}${notebook}`,
       }];
     },
     result(call) {
@@ -140,6 +154,37 @@ Each turn, call the play tool with 1-5 moves. Keep "thought" under 60 words.`,
         .map(({ action, row, col }) => ({ action, row, col }));
       if (!moves.length) return null;
       return { thought: String(call.thought || "").slice(0, 300), moves };
+    },
+  },
+
+  // Post-mortem after a lost game: turns the loss into one reusable lesson.
+  "minesweeper-review": {
+    maxTokens: 300,
+    system: `You are reviewing a lost Minesweeper game so you play better next time.
+You will see the board just before your fatal move, the move itself, the reasoning you gave at the time, and the final board with every mine shown as X.
+Work out why the move was unsafe: which numbers or constraints ruled it out, or whether it was really a guess and a safer cell existed. Then write ONE general lesson, at most 40 words, that you could apply in future games.
+State the pattern or rule. Do not mention coordinates from this particular board. Call the write_lesson tool.`,
+    tool: {
+      name: "write_lesson",
+      description: "Record one general lesson from a lost Minesweeper game.",
+      input_schema: {
+        type: "object",
+        properties: { lesson: { type: "string", maxLength: 300 } },
+        required: ["lesson"],
+      },
+    },
+    content({ before, after, fatal, thought }) {
+      const b = formatBoard(before, "Board before the fatal move");
+      const a = formatBoard(after, "Final board (X = mine)");
+      if (!b || !a || !inBoard(fatal?.row) || !inBoard(fatal?.col)) return null;
+      return [{
+        type: "text",
+        text: `${b}\n\nFatal move: reveal row ${fatal.row}, col ${fatal.col}, which was a mine.\nYour reasoning at the time: ${cleanText(thought, 400) || "(none)"}\n\n${a}`,
+      }];
+    },
+    result(call) {
+      const lesson = cleanText(call.lesson, 300);
+      return lesson ? { lesson } : null;
     },
   },
 };
