@@ -28,7 +28,12 @@ The function's role is only allowed `secretsmanager:GetSecretValue` on that one 
 
 The stack output `FunctionUrl` goes into `proxyUrl` in `static-site/src/doom.njk`.
 
-Test locally-hosted pages by redeploying with `AllowedOrigin=http://localhost:8181`.
+The site is served on both `djmckay.tech` and `www.djmckay.tech`, and CORS is an exact-match check,
+so both must be in `AllowedOrigin` (the default has both). A missing origin shows up in the browser as
+a `204` preflight followed by no game request. Note `sam deploy` reuses a stack's previous parameter
+values, so pass `--parameter-overrides "AllowedOrigin=..."` explicitly when changing it.
+
+Test locally-hosted pages by adding `http://localhost:8181` to `AllowedOrigin`, separated by `|`.
 
 ## Cost controls (do these)
 

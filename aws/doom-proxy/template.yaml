@@ -9,7 +9,7 @@ Parameters:
     Description: Name of an existing Secrets Manager secret holding the Anthropic API key (plain string)
   AllowedOrigin:
     Type: String
-    Default: https://djmckay.tech
+    Default: https://djmckay.tech|https://www.djmckay.tech
     Description: Origins served and allowed by CORS, separated by | or , (e.g. https://djmckay.tech|http://localhost:8181)
   DailyCallCap:
     Type: Number
