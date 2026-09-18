@@ -207,6 +207,7 @@ Give each move one verdict:
 - approve: a reveal that is provably safe, or a flag on a cell that is provably a mine, from the visible numbers and flags.
 - unproven: might be right, but cannot be proven from the visible board (a guess).
 - wrong: contradicts the numbers, for example revealing a cell that must be a mine, flagging a cell that must be safe, or acting on a revealed or already-flagged cell.
+The first reveal on a board where every cell is still hidden is guaranteed safe in this game (mines are placed after it), so approve exactly that one reveal; any other move on an untouched board is unproven.
 Give a short reason for each (under 25 words). The player's own reasoning may be mistaken, so check it instead of trusting it.
 Think it through, then reply only by calling the review_moves tool.`,
     tool: {
