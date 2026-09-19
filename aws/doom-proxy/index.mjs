@@ -59,16 +59,20 @@ const MS_DEFAULT_MOVES = 5;
 
 // Public Minesweeper presets. The page sends names; model IDs and effort values never come from the client.
 // high/xhigh/max are not offered: at high, 2 of 3 mid-game turns hit the 6000-token / 60 s budget in testing.
-const MS_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
+const PUBLIC_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
 const MS_PUBLIC_EFFORTS = ["low", "medium"];
-function msChoice(input) {
+// Picks a public preset from the request: model by name, effort from an allowlist, anything else falls back.
+function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
   const c = input.config && typeof input.config === "object" ? input.config : {};
-  const model = typeof c.model === "string" && Object.hasOwn(MS_MODELS, c.model)
-    ? MS_MODELS[c.model]
-    : process.env.MINESWEEPER_MODEL || MODEL;
-  const effort = MS_PUBLIC_EFFORTS.includes(c.effort) ? c.effort : MS_EFFORT;
+  const model = typeof c.model === "string" && Object.hasOwn(PUBLIC_MODELS, c.model) ? PUBLIC_MODELS[c.model] : defaultModel;
+  const effort = efforts.includes(c.effort) ? c.effort : defaultEffort;
   return { model, effort };
 }
+const msChoice = (input) =>
+  presetChoice(input, { defaultModel: process.env.MINESWEEPER_MODEL || MODEL, efforts: MS_PUBLIC_EFFORTS, defaultEffort: MS_EFFORT });
+// Doom: "off" = no thinking (forced tool call, fast); "low" = adaptive thinking at low effort (Sonnet only).
+const DOOM_EFFORTS = ["off", "low"];
+const doomChoice = (input) => presetChoice(input, { defaultModel: MODEL, efforts: DOOM_EFFORTS, defaultEffort: "off" });
 const msMoveCap = (n) => (Number.isInteger(n) ? Math.min(Math.max(n, 1), MS_MAX_MOVES) : MS_DEFAULT_MOVES);
 
 const MS_RULES = `Minesweeper rules are very simple. The board is divided into cells, with mines randomly distributed. To win, you need to open all the cells. The number on an opened cell shows the number of mines adjacent to it. Using this information, you can determine cells that are safe, and cells that contain mines. Cells suspected of being mines can be marked with a flag.
@@ -104,7 +108,12 @@ const adaptiveToolChoice = (model) => (thinksAdaptively(model) ? { type: "auto" 
 // Each game owns its prompt, tool and validation so the client can never choose them.
 const GAMES = {
   doom: {
-    maxTokens: 200,
+    choose: doomChoice,
+    // Thinking tokens count toward max_tokens, so an answer needs headroom when thinking is on.
+    maxTokens: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? 4000 : 200),
+    extras: (model, { effort }) =>
+      !thinksAdaptively(model) ? {} : effort === "off" ? { thinking: { type: "disabled" } } : { thinking: { type: "adaptive" }, output_config: { effort } },
+    toolChoice: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? { type: "auto" } : undefined),
     system: `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, find and kill monsters, explore toward the level exit.
 Controls per turn: one action held for a short time. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
 Tips: turn until an enemy is centered in the crosshair, then fire with a repeat of 3-6. Keep moving to avoid damage. If a wall fills the view, turn. Use doors and switches when facing them.
@@ -441,10 +450,10 @@ export const handler = async (event) => {
     body: JSON.stringify({
       model,
       ...(game.extras?.(model, choice) ?? {}),
-      max_tokens: game.maxTokens,
+      max_tokens: typeof game.maxTokens === "function" ? game.maxTokens(model, choice) : game.maxTokens,
       system: game.system,
       tools: [game.tool],
-      tool_choice: game.toolChoice?.(model) ?? { type: "tool", name: game.tool.name },
+      tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
       messages: [{ role: "user", content }],
     }),
   });
