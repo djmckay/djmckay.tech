@@ -5,13 +5,13 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // A page served from localhost (never the live site) can also pick Claude Fable 5.1, which the proxy refuses from any
-  // other origin, and lift the run limits with ?budget=5&steps=150, because Fable costs about five times as much per
-  // step. ?effort=low|medium|high sets its thinking effort. This is for recording demos.
+  // other origin. Fable costs about five times as much per step, so its run limit here is $5 instead of $1. Either limit
+  // can be set with ?budget=5&steps=150. ?effort=low|medium|high sets Fable's thinking effort. This is for recording demos.
   const LOCAL = location.hostname === "localhost";
   const query = new URLSearchParams(location.search);
   const localLimit = (name, max, fallback) => { const n = Number(query.get(name)); return LOCAL && n > 0 && n <= max ? n : fallback; };
   const maxSteps = Math.floor(localLimit("steps", 500, cfg.maxSteps));
-  const budgetUsd = localLimit("budget", 20, cfg.budgetUsd);
+  const runBudget = () => localLimit("budget", 20, LOCAL && settings.model === "fable" ? 5 : cfg.budgetUsd);
   const fableEffort = ["low", "medium", "high"].includes(query.get("effort")) ? query.get("effort") : "low";
 
   // js-dos v8 key codes (GLFW numbering).
@@ -53,7 +53,7 @@
   function renderSettings() {
     $("doom-model").value = settings.model;
     $("doom-model").disabled = running;
-    $("doom-hint").textContent = `${HINTS[settings.model]} A run stops at ${maxSteps} steps or $${budgetUsd}.`;
+    $("doom-hint").textContent = `${HINTS[settings.model]} A run stops at ${maxSteps} steps or $${runBudget()}.`;
   }
 
   function log(text, cls) {
@@ -208,7 +208,7 @@
     let budgetStop = false;
     await startLevel();
     while (running && steps < maxSteps) {
-      if (spent.usd >= budgetUsd) { budgetStop = true; break; }
+      if (spent.usd >= runBudget()) { budgetStop = true; break; }
       try {
         const { image, sig } = await grabFrame();
         trackProgress(sig);
@@ -237,7 +237,7 @@
     }
     looping = false;
     stop();
-    if (budgetStop) log(`Stopped at this run's $${budgetUsd} budget.`);
+    if (budgetStop) log(`Stopped at this run's $${runBudget()} budget.`);
     else if (steps >= maxSteps) log(`Reached ${maxSteps}-step limit for this session.`);
   }
 
