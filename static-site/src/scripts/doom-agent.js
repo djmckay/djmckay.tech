@@ -49,13 +49,53 @@
     $("doom-cost").textContent = `Est. cost: ${usd} · ${tok} tokens · ${steps} steps`;
   }
 
+  // Progress tracking. The page can tell whether the last move changed the picture; the model cannot, so we tell it.
+  const BLOCKED_DIFF = 4; // mean grey-level change (0-255) below which a move counts as "nothing happened"
+  const MOVES = ["forward", "back", "strafe_left", "strafe_right"];
+  const IDLE = ["left", "right", "wait"]; // firing, using and menu presses are neutral
+  const STALL_NOTICE = 3; // steps without progress before the log says Claude is being warned
+  let prevSig = null;
+  let lastAction = null;
+  let stall = 0; // steps since the last move that actually changed the view
+  let blocked = false; // the last move changed nothing
+
+  // A 32x20 grey thumbnail: enough to tell whether the picture changed.
+  function signature(canvas) {
+    const t = document.createElement("canvas");
+    t.width = 32;
+    t.height = 20;
+    const g = t.getContext("2d");
+    g.drawImage(canvas, 0, 0, 32, 20);
+    const px = g.getImageData(0, 0, 32, 20).data;
+    const out = new Float32Array(640);
+    for (let i = 0; i < 640; i++) out[i] = (px[i * 4] + px[i * 4 + 1] + px[i * 4 + 2]) / 3;
+    return out;
+  }
+  const changeBetween = (a, b) => {
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+    return sum / a.length;
+  };
+
+  // Movement that changes the view resets the count. Movement that does not (a wall), turning and waiting add to it.
+  function trackProgress(sig) {
+    blocked = false;
+    if (!prevSig || !lastAction) return;
+    const changed = changeBetween(prevSig, sig) >= BLOCKED_DIFF;
+    if (MOVES.includes(lastAction)) {
+      if (changed) stall = 0;
+      else { stall++; blocked = true; }
+    } else if (IDLE.includes(lastAction)) stall++;
+    if (stall === STALL_NOTICE) log(`No forward progress for ${STALL_NOTICE} steps, so Claude is being told it is going in circles.`, "note");
+  }
+
   async function grabFrame() {
     const img = await ci.screenshot(); // ImageData
     const c = document.createElement("canvas");
     c.width = img.width;
     c.height = img.height;
     c.getContext("2d").putImageData(img, 0, 0);
-    return c.toDataURL("image/jpeg", 0.7).split(",")[1];
+    return { image: c.toDataURL("image/jpeg", 0.7).split(",")[1], sig: signature(c) };
   }
 
   async function hold(action, ticks) {
@@ -88,7 +128,7 @@
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, config: { model: settings.model, effort: "off" } });
+    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, blocked, stall, config: { model: settings.model, effort: "off" } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -102,10 +142,13 @@
     while (running && steps < cfg.maxSteps) {
       if (spent.usd >= cfg.budgetUsd) { budgetStop = true; break; }
       try {
-        const image = await grabFrame();
+        const { image, sig } = await grabFrame();
+        trackProgress(sig);
         ci.pause?.(); // turn-based: game freezes while the model thinks
         const { thought, action, repeat, usage } = await decide(image);
         ci.resume?.();
+        prevSig = sig;
+        lastAction = action;
         steps++;
         if (usage) {
           spent.tokens += usage.inputTokens + usage.outputTokens;
@@ -136,6 +179,10 @@
     if (!ci) return;
     running = true;
     steps = 0;
+    prevSig = null;
+    lastAction = null;
+    stall = 0;
+    blocked = false;
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     showCost();
     $("doom-toggle").textContent = "Stop";
