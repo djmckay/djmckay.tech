@@ -59,16 +59,20 @@ const MS_DEFAULT_MOVES = 5;
 
 // Public Minesweeper presets. The page sends names; model IDs and effort values never come from the client.
 // high/xhigh/max are not offered: at high, 2 of 3 mid-game turns hit the 6000-token / 60 s budget in testing.
-const MS_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
+const PUBLIC_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
 const MS_PUBLIC_EFFORTS = ["low", "medium"];
-function msChoice(input) {
+// Picks a public preset from the request: model by name, effort from an allowlist, anything else falls back.
+function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
   const c = input.config && typeof input.config === "object" ? input.config : {};
-  const model = typeof c.model === "string" && Object.hasOwn(MS_MODELS, c.model)
-    ? MS_MODELS[c.model]
-    : process.env.MINESWEEPER_MODEL || MODEL;
-  const effort = MS_PUBLIC_EFFORTS.includes(c.effort) ? c.effort : MS_EFFORT;
+  const model = typeof c.model === "string" && Object.hasOwn(PUBLIC_MODELS, c.model) ? PUBLIC_MODELS[c.model] : defaultModel;
+  const effort = efforts.includes(c.effort) ? c.effort : defaultEffort;
   return { model, effort };
 }
+const msChoice = (input) =>
+  presetChoice(input, { defaultModel: process.env.MINESWEEPER_MODEL || MODEL, efforts: MS_PUBLIC_EFFORTS, defaultEffort: MS_EFFORT });
+// Doom: "off" = no thinking (forced tool call, fast); "low" = adaptive thinking at low effort (Sonnet only).
+const DOOM_EFFORTS = ["off", "low"];
+const doomChoice = (input) => presetChoice(input, { defaultModel: MODEL, efforts: DOOM_EFFORTS, defaultEffort: "off" });
 const msMoveCap = (n) => (Number.isInteger(n) ? Math.min(Math.max(n, 1), MS_MAX_MOVES) : MS_DEFAULT_MOVES);
 
 const MS_RULES = `Minesweeper rules are very simple. The board is divided into cells, with mines randomly distributed. To win, you need to open all the cells. The number on an opened cell shows the number of mines adjacent to it. Using this information, you can determine cells that are safe, and cells that contain mines. Cells suspected of being mines can be marked with a flag.
@@ -104,10 +108,17 @@ const adaptiveToolChoice = (model) => (thinksAdaptively(model) ? { type: "auto" 
 // Each game owns its prompt, tool and validation so the client can never choose them.
 const GAMES = {
   doom: {
-    maxTokens: 200,
+    choose: doomChoice,
+    // Thinking tokens count toward max_tokens, so an answer needs headroom when thinking is on.
+    maxTokens: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? 4000 : 200),
+    extras: (model, { effort }) =>
+      !thinksAdaptively(model) ? {} : effort === "off" ? { thinking: { type: "disabled" } } : { thinking: { type: "adaptive" }, output_config: { effort } },
+    toolChoice: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? { type: "auto" } : undefined),
     system: `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, find and kill monsters, explore toward the level exit.
-Controls per turn: one action held for a short time. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
-Tips: turn until an enemy is centered in the crosshair, then fire with a repeat of 3-6. Keep moving to avoid damage. If a wall fills the view, turn. Use doors and switches when facing them.
+Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
+Combat: when an enemy is visible, turn until it is centered in the crosshair, then fire in bursts (repeat 3-6). Keep moving to avoid damage, and walk over health and ammo pickups.
+Navigation: a wall filling the view means you are blocked; do not keep pushing forward. Turn a lot (repeat 7-8) or back up first, then head down whichever opening you find: dark gaps, doorways and corridors. Wooden or brown panels and doorframes are doors: walk up to one and use it. Prefer directions you have not tried, and never turn a little left then a little right in the same spot. Commit to one direction with a big turn.
+The message may warn that you are blocked or have made no progress. When it does, change what you are doing.
 Always call the act tool. Keep "thought" to one short sentence.`,
     tool: {
       name: "act",
@@ -122,14 +133,22 @@ Always call the act tool. Keep "thought" to one short sentence.`,
         required: ["thought", "action"],
       },
     },
-    content({ image, stats, history }) {
+    // blocked/stall come from the page, which can tell whether the last move changed the picture.
+    // Only the values are taken from the client; the wording is ours.
+    content({ image, stats, history, blocked, stall }) {
       if (typeof image !== "string" || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image)) return null;
       const recent = Array.isArray(history)
         ? history.slice(-6).map((h) => `${String(h.action).slice(0, 16)}x${Number(h.repeat) || 1}`).join(", ")
         : "";
+      const steps = Number.isInteger(stall) ? Math.min(Math.max(stall, 0), 50) : 0;
+      const warnings = [];
+      if (blocked === true) warnings.push("Your last move did not change the view: something solid is in the way.");
+      if (steps >= 3) {
+        warnings.push(`You have made no forward progress for ${steps} steps. Stop turning back and forth: commit to one big turn (repeat 7 or 8) or back up, then walk forward.`);
+      }
       return [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
-        { type: "text", text: `Recent actions: ${recent || "none"}. ${String(stats || "").slice(0, 100)}` },
+        { type: "text", text: `Recent actions: ${recent || "none"}. ${String(stats || "").slice(0, 100)}${warnings.length ? `\nWARNING: ${warnings.join(" ")}` : ""}` },
       ];
     },
     result(call) {
@@ -441,10 +460,10 @@ export const handler = async (event) => {
     body: JSON.stringify({
       model,
       ...(game.extras?.(model, choice) ?? {}),
-      max_tokens: game.maxTokens,
+      max_tokens: typeof game.maxTokens === "function" ? game.maxTokens(model, choice) : game.maxTokens,
       system: game.system,
       tools: [game.tool],
-      tool_choice: game.toolChoice?.(model) ?? { type: "tool", name: game.tool.name },
+      tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
       messages: [{ role: "user", content }],
     }),
   });

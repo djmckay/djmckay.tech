@@ -16,6 +16,12 @@ applies to Sonnet (Haiku has no adaptive thinking). Boards may be up to 16 rows 
 verdict per move (`approve`, `unproven` or `wrong`) with a short reason, so a page can run a second Claude as referee.
 Every Minesweeper prompt starts with the basic rules of the game.
 
+Doom requests may also carry `config: {model: "haiku"|"sonnet", effort: "off"|"low"}`. `off` sends a forced tool
+call with thinking disabled (fast, cheap); `low` gives Sonnet adaptive thinking at low effort with
+`tool_choice: auto` and a 4000-token budget (a forced tool call would suppress the thinking). Effort only applies to
+Sonnet, unknown models and efforts fall back to the defaults (`MODEL`, `off`), and a request with no config behaves
+exactly as before.
+
 ## Live-play results
 
 Two routes never call the model: `minesweeper-result` records one finished Claude game and `minesweeper-stats`

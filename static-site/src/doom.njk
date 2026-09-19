@@ -11,6 +11,15 @@ extraStyles:
   <div class="container">
     <h1 class="mb-2">Claude plays Doom</h1>
     <p class="text-muted">Each turn the game freezes, a screenshot goes to Claude, and it picks a move. Nothing here is scripted.</p>
+    <div class="doom-settings mb-3" aria-label="Game settings">
+      <label>Model
+        <select id="doom-model" class="form-control form-control-sm">
+          <option value="haiku">Haiku 4.5</option>
+          <option value="sonnet">Sonnet 5</option>
+        </select>
+      </label>
+      <p id="doom-hint" class="small text-muted mb-0 doom-hint"></p>
+    </div>
     <div class="doom-grid">
       <div>
         <div class="doom-stage"><div id="dos" style="width:100%; aspect-ratio:16/10;"></div></div>
@@ -30,12 +39,17 @@ extraStyles:
     bundleUrl: "/doom/doom.jsdos",
     proxyUrl: "https://bgcxjj324xcfvxmsfpbv627pp40xhisu.lambda-url.us-east-1.on.aws/",
     maxSteps: 150,
+    budgetUsd: 1,
   };
 </script>
 <script src="https://v8.js-dos.com/latest/js-dos.js"></script>
 <script src="/scripts/doom-agent.js"></script>
 <style>
   #doom-log .err { color: #c0392b; }
+  #doom-log .note { color: #1e6fd9; }
+  .doom-settings { display: grid; gap: .75rem 1rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
+  .doom-settings label { margin: 0; font-size: .85rem; font-weight: 600; }
+  .doom-hint { grid-column: 1 / -1; }
   .doom-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 992px) { .doom-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
 </style>
