@@ -1,0 +1,76 @@
+---
+layout: base.njk
+title: Minesweeper results from live play
+description: How Claude has done on the Minesweeper page, counted anonymously from live games.
+permalink: /minesweeper/results/index.html
+extraStyles:
+  - /css/landing-page.css
+---
+<section class="py-5">
+  <div class="container">
+    <h1 class="mb-2">Minesweeper results from live play</h1>
+    <p class="text-muted mb-1">Each time Claude finishes a game on the <a href="/minesweeper/">Minesweeper page</a>, its outcome, settings, cost and time are counted here. Nothing personal is stored, and games you play yourself are not counted.</p>
+    <p class="text-muted small">These numbers are reported by visitors' browsers and are not audited, so treat them as indicative. Only results under the current prompt version (<code>{{ minesweeper.resultVersion }}</code>) are shown, because changing the prompt changes how well Claude plays.</p>
+
+    <div class="msr-filter mb-3">
+      <label for="msr-level" class="mb-0 mr-2 font-weight-bold small">Level</label>
+      <select id="msr-level" class="form-control form-control-sm" style="width:auto;display:inline-block" disabled>
+        <option value="all">All levels</option>
+        <option value="beginner">Beginner (8×8)</option>
+        <option value="intermediate">Intermediate (16×16)</option>
+        <option value="expert">Expert (30×16)</option>
+      </select>
+    </div>
+
+    <p id="msr-status" class="text-muted" role="status">Loading results...</p>
+
+    <div id="msr-body" class="msr" hidden>
+      <div class="msr-bar">
+        <div class="msr-key small text-muted">
+          <span class="msr-k"><span class="msr-sw msr-w"><i class="fas fa-check" aria-hidden="true"></i></span>won</span>
+          <span class="msr-k"><span class="msr-sw msr-l"><i class="fas fa-times" aria-hidden="true"></i></span>lost (hit a mine)</span>
+          <span class="msr-k"><span class="msr-sw msr-s"><i class="fas fa-minus" aria-hidden="true"></i></span>stopped at the turn or spend limit</span>
+        </div>
+        <button type="button" id="msr-tv" class="btn btn-sm btn-outline-secondary" aria-pressed="false">Table view</button>
+      </div>
+      <div id="msr-charts">
+        <h5 class="mt-3">Wins by setup</h5>
+        <div id="msr-bars"></div>
+        <h5 class="mt-4">Average cost and time per game</h5>
+        <p class="small text-muted mb-1">Setups with at least 3 games. The blue point has the highest win rate among setups with at least 5.</p>
+        <div id="msr-scatter"></div>
+      </div>
+      <div id="msr-table" hidden></div>
+      <div class="msr-tip" id="msr-tip" role="status"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  window.MS_RESULTS = {
+    proxyUrl: "{{ minesweeper.proxyUrl }}",
+    version: "{{ minesweeper.resultVersion }}",
+  };
+</script>
+<script src="/scripts/minesweeper-results.js"></script>
+<style>
+  .msr { position: relative; }
+  .msr-bar { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center; justify-content: space-between; }
+  .msr-key { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+  .msr-k { display: inline-flex; align-items: center; gap: .4rem; }
+  .msr-sw { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; color: #fff; font-size: 11px; }
+  .msr-w { background: #0ca30c; } .msr-l { background: #d03b3b; } .msr-s { background: #898781; }
+  .msr-row { display: grid; grid-template-columns: minmax(150px, 320px) minmax(120px, 1fr) 120px; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid #e1e0d9; }
+  .msr-row:focus-visible, .msr-dot:focus-visible { outline: 2px solid #52514e; outline-offset: 2px; }
+  .msr-track { display: flex; gap: 2px; height: 14px; }
+  .msr-track span { border-radius: 3px; min-width: 4px; }
+  .msr-res { text-align: right; font-weight: 500; white-space: nowrap; }
+  .msr-res small { display: block; font-weight: 400; color: #6c757d; }
+  .msr-tip { position: absolute; pointer-events: none; background: #fff; color: #0b0b0b; border: 1px solid #c3c2b7; border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: 320px; opacity: 0; z-index: 5; }
+  #msr-table table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: .5rem; }
+  #msr-table th, #msr-table td { text-align: right; padding: 5px 8px; border-top: 1px solid #e1e0d9; }
+  #msr-table th { color: #52514e; font-weight: 400; }
+  #msr-table th:first-child, #msr-table td:first-child { text-align: left; }
+  .msr-scroll { overflow-x: auto; }
+  @media (max-width: 600px) { .msr-row { grid-template-columns: 1fr 110px; } .msr-row .msr-track { grid-column: 1 / -1; order: 3; } }
+</style>
