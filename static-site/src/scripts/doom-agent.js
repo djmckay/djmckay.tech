@@ -17,6 +17,34 @@
   const history = [];
   const spent = { usd: 0, tokens: 0, priced: true };
 
+  const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
+  const EFFORTS = ["off", "low"]; // off = no thinking; low = adaptive thinking (Sonnet only)
+  const DEFAULTS = { model: "haiku", effort: "off" };
+  const SETTINGS_KEY = "doom-settings-v1";
+  const sanitize = (v) => {
+    v = v && typeof v === "object" ? v : {};
+    return {
+      model: MODELS.includes(v.model) ? v.model : DEFAULTS.model,
+      effort: EFFORTS.includes(v.effort) ? v.effort : DEFAULTS.effort,
+    };
+  };
+  let settings;
+  try { settings = sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch { settings = sanitize({}); }
+  const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
+
+  const HINTS = {
+    haiku: "Haiku is fast and cheap, but at 320×200 it often misreads the scene.",
+    "sonnet-off": "Sonnet answers immediately, without thinking. How it plays Doom hasn't been measured yet.",
+    "sonnet-low": "Sonnet thinks briefly before each move, so each step should take longer and cost more. How it plays Doom hasn't been measured yet.",
+  };
+  function renderSettings() {
+    $("doom-model").value = settings.model;
+    $("doom-effort").value = settings.effort;
+    $("doom-model").disabled = running;
+    $("doom-effort").disabled = running || settings.model === "haiku";
+    $("doom-hint").textContent = `${HINTS[settings.model === "haiku" ? "haiku" : `sonnet-${settings.effort}`]} A run stops at ${cfg.maxSteps} steps or $${cfg.budgetUsd}.`;
+  }
+
   function log(text, cls) {
     const li = document.createElement("li");
     li.textContent = text;
@@ -69,7 +97,7 @@
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const body = JSON.stringify({ image, history, stats: `Step ${steps}.` });
+    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, config: { model: settings.model, effort: settings.effort } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -79,7 +107,9 @@
   }
 
   async function loop() {
+    let budgetStop = false;
     while (running && steps < cfg.maxSteps) {
+      if (spent.usd >= cfg.budgetUsd) { budgetStop = true; break; }
       try {
         const image = await grabFrame();
         ci.pause?.(); // turn-based: game freezes while the model thinks
@@ -101,12 +131,14 @@
       }
     }
     stop();
-    if (steps >= cfg.maxSteps) log(`Reached ${cfg.maxSteps}-step limit for this session.`);
+    if (budgetStop) log(`Stopped at this run's $${cfg.budgetUsd} budget.`);
+    else if (steps >= cfg.maxSteps) log(`Reached ${cfg.maxSteps}-step limit for this session.`);
   }
 
   function stop() {
     running = false;
     $("doom-toggle").textContent = "Let Claude play";
+    renderSettings();
   }
 
   function start() {
@@ -116,10 +148,19 @@
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     showCost();
     $("doom-toggle").textContent = "Stop";
+    renderSettings();
     loop();
   }
 
   showCost();
+  renderSettings();
+  for (const id of ["doom-model", "doom-effort"]) {
+    $(id).addEventListener("change", () => {
+      settings = sanitize({ model: $("doom-model").value, effort: $("doom-effort").value });
+      saveSettings();
+      renderSettings();
+    });
+  }
   $("doom-toggle").addEventListener("click", () => (running ? stop() : start()));
 
   Dos($("dos"), {
