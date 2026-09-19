@@ -18,31 +18,22 @@
   const spent = { usd: 0, tokens: 0, priced: true };
 
   const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
-  const EFFORTS = ["off", "low"]; // off = no thinking; low = adaptive thinking (Sonnet only)
-  const DEFAULTS = { model: "haiku", effort: "off" };
+  const DEFAULTS = { model: "sonnet" };
   const SETTINGS_KEY = "doom-settings-v1";
-  const sanitize = (v) => {
-    v = v && typeof v === "object" ? v : {};
-    return {
-      model: MODELS.includes(v.model) ? v.model : DEFAULTS.model,
-      effort: EFFORTS.includes(v.effort) ? v.effort : DEFAULTS.effort,
-    };
-  };
+  const sanitize = (v) => ({ model: MODELS.includes(v?.model) ? v.model : DEFAULTS.model });
   let settings;
   try { settings = sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch { settings = sanitize({}); }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
 
+  // From two 40-step test runs of each model against the live proxy.
   const HINTS = {
-    haiku: "Haiku is fast and cheap, but at 320×200 it often misreads the scene.",
-    "sonnet-off": "Sonnet answers immediately, without thinking. How it plays Doom hasn't been measured yet.",
-    "sonnet-low": "Sonnet thinks briefly before each move, so each step should take longer and cost more. How it plays Doom hasn't been measured yet.",
+    haiku: "Haiku: about 1 second and 0.14 cents per step. In two test runs it walked into walls more, and once spent most of the run stuck at the menus.",
+    sonnet: "Sonnet: about 2 seconds and 0.3 cents per step, so a full 150-step run costs under 50 cents. In two test runs it got through the menus in about 10 steps and rarely got stuck.",
   };
   function renderSettings() {
     $("doom-model").value = settings.model;
-    $("doom-effort").value = settings.effort;
     $("doom-model").disabled = running;
-    $("doom-effort").disabled = running || settings.model === "haiku";
-    $("doom-hint").textContent = `${HINTS[settings.model === "haiku" ? "haiku" : `sonnet-${settings.effort}`]} A run stops at ${cfg.maxSteps} steps or $${cfg.budgetUsd}.`;
+    $("doom-hint").textContent = `${HINTS[settings.model]} A run stops at ${cfg.maxSteps} steps or $${cfg.budgetUsd}.`;
   }
 
   function log(text, cls) {
@@ -97,7 +88,7 @@
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, config: { model: settings.model, effort: settings.effort } });
+    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, config: { model: settings.model, effort: "off" } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -154,13 +145,11 @@
 
   showCost();
   renderSettings();
-  for (const id of ["doom-model", "doom-effort"]) {
-    $(id).addEventListener("change", () => {
-      settings = sanitize({ model: $("doom-model").value, effort: $("doom-effort").value });
-      saveSettings();
-      renderSettings();
-    });
-  }
+  $("doom-model").addEventListener("change", () => {
+    settings = sanitize({ model: $("doom-model").value });
+    saveSettings();
+    renderSettings();
+  });
   $("doom-toggle").addEventListener("click", () => (running ? stop() : start()));
 
   Dos($("dos"), {
