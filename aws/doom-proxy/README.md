@@ -14,7 +14,23 @@ stack defaults (`MINESWEEPER_MODEL`, `MINESWEEPER_EFFORT`), so pages that send n
 applies to Sonnet (Haiku has no adaptive thinking). Boards may be up to 16 rows x 30 columns; `mines` and
 `maxMoves` (1-15) are optional. `minesweeper-verify` takes the board plus the player's `proposed` moves and returns a
 verdict per move (`approve`, `unproven` or `wrong`) with a short reason, so a page can run a second Claude as referee.
-Every Minesweeper prompt starts with the basic rules of the game. After Claude loses a Minesweeper game the
+Every Minesweeper prompt starts with the basic rules of the game.
+
+## Live-play results
+
+Two routes never call the model: `minesweeper-result` records one finished Claude game and `minesweeper-stats`
+returns the aggregates. Both work while the Anthropic budget is exhausted and do not count against the model-call
+caps; they have their own limits (30 writes per hour per IP, 2000 per day, 30 reads per minute per IP).
+
+- **Storage:** the `djmckay-minesweeper-results` DynamoDB table (created by this stack, retained if the stack is
+  deleted, point-in-time recovery on). One atomic-counter item per setup: `pk="agg"`,
+  `sk="<version>#<level>#<model>#<effort>#<referee>"`, with games, wins, losses, stopped and sums of cells, calls,
+  seconds, cost (micro-dollars) and the referee's mistake counts. No per-game rows, IP addresses or free text.
+- **Trust:** results come from visitors' browsers, so `results.mjs` only checks plausibility (level rules, cost and
+  turn limits, a win must clear the board, counters bounded by checks x moves per turn). They are self-reported, and
+  the results page says so. Keep `RESULT_LEVELS` in sync with `LEVELS` in the page script.
+- **Version:** the page sends a version string; bump it when prompts change so old and new results are not mixed.
+- **Access:** the function may only `UpdateItem` and `Query` that table. `DJMCKAY_TECH` (the visitor counter) is not touched. After Claude loses a Minesweeper game the
 page sends the board before the fatal move, the move, Claude's reasoning at the time and the final board;
 the review call returns one general lesson. The page keeps up to 8 lessons in the visitor's own
 `localStorage` and sends them back as an advisory "notebook" with later `minesweeper` requests. The proxy

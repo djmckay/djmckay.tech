@@ -1,11 +1,17 @@
 // Lambda Function URL handler: proxies one game state (Doom frame / Minesweeper board) to Claude and returns its move.
 // Env: ANTHROPIC_SECRET_ID (Secrets Manager name/ARN holding the key), ALLOWED_ORIGIN (comma- or |-separated),
-//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL), MINESWEEPER_EFFORT
+//      DAILY_CALL_CAP, DAILY_USD_CAP, PER_IP_PER_MIN, MODEL (Doom), MINESWEEPER_MODEL (Minesweeper, falls back to MODEL), MINESWEEPER_EFFORT,
+//      RESULTS_TABLE (DynamoDB table for live-play results), DAILY_RESULT_CAP
 // Leave CORS unset on the Function URL itself; this handler sets the headers.
 
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager"; // bundled in the nodejs20.x runtime
 
+import { DynamoDBClient, UpdateItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb"; // bundled in the nodejs20.x runtime
+import { parseResult, updateInput, queryInput, shapeStats } from "./results.mjs";
+
 const secrets = new SecretsManagerClient({});
+const ddb = new DynamoDBClient({});
+const RESULTS_TABLE = process.env.RESULTS_TABLE;
 let apiKeyPromise; // cached for the life of the warm instance
 
 function getApiKey() {
@@ -335,6 +341,64 @@ const reply = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
+// Separate, cheap limits for the non-model routes so results traffic never eats the model-call budget.
+const hitLog = new Map();
+function rateHit(kind, ip, max, windowMs) {
+  if (hitLog.size > 5000) hitLog.clear();
+  const key = `${kind}|${ip}`, now = Date.now();
+  const hits = (hitLog.get(key) || []).filter((t) => now - t < windowMs);
+  const over = hits.length >= max;
+  if (!over) hits.push(now);
+  hitLog.set(key, hits);
+  return over;
+}
+const WRITES_PER_HOUR = 30;
+const STATS_PER_MIN = 30;
+const DAILY_WRITE_CAP = Number(process.env.DAILY_RESULT_CAP || 2000);
+let writeDay = "";
+let dayWrites = 0;
+let statsCache = null; // { at, body }
+
+async function handleResult(input, ip) {
+  if (!RESULTS_TABLE) return reply(503, { error: "results disabled" });
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== writeDay) { writeDay = today; dayWrites = 0; }
+  if (dayWrites >= DAILY_WRITE_CAP || rateHit("write", ip, WRITES_PER_HOUR, 3_600_000)) return reply(429, { error: "slow down" });
+  const r = parseResult(input);
+  if (!r) return reply(400, { error: "bad input" });
+  try {
+    await ddb.send(new UpdateItemCommand(updateInput(RESULTS_TABLE, r, new Date().toISOString())));
+  } catch (e) {
+    console.error("results write failed", e.name);
+    return reply(500, { error: "store" });
+  }
+  dayWrites++;
+  statsCache = null;
+  return reply(200, { ok: true });
+}
+
+async function handleStats(ip) {
+  if (!RESULTS_TABLE) return reply(503, { error: "results disabled" });
+  if (rateHit("stats", ip, STATS_PER_MIN, 60_000)) return reply(429, { error: "slow down" });
+  if (statsCache && Date.now() - statsCache.at < 60_000) return reply(200, statsCache.body);
+  try {
+    const items = [];
+    let startKey;
+    for (let page = 0; page < 5; page++) {
+      const out = await ddb.send(new QueryCommand(queryInput(RESULTS_TABLE, startKey)));
+      items.push(...(out.Items ?? []));
+      startKey = out.LastEvaluatedKey;
+      if (!startKey) break;
+    }
+    const body = { setups: shapeStats(items), generatedAt: new Date().toISOString() };
+    statsCache = { at: Date.now(), body };
+    return reply(200, body);
+  } catch (e) {
+    console.error("results read failed", e.name);
+    return reply(500, { error: "store" });
+  }
+}
+
 export const handler = async (event) => {
   const method = event.requestContext?.http?.method;
   reqOrigin = event.headers?.origin || "";
@@ -342,14 +406,19 @@ export const handler = async (event) => {
   if (method !== "POST") return reply(405, { error: "method not allowed" });
   if (!ALLOWED_ORIGINS.includes(reqOrigin)) return reply(403, { error: "forbidden" });
 
-  if (Date.now() < budgetBlockedUntil) return reply(402, { error: "budget", until: budgetResets });
-
-  const why = limited(event.requestContext?.http?.sourceIp || "unknown");
-  if (why) return reply(429, { error: why });
-
+  const ip = event.requestContext?.http?.sourceIp || "unknown";
   let input;
   try { input = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body, "base64") : event.body); }
   catch { return reply(400, { error: "bad json" }); }
+  if (!input || typeof input !== "object") return reply(400, { error: "bad json" });
+
+  if (input.game === "minesweeper-result") return handleResult(input, ip);
+  if (input.game === "minesweeper-stats") return handleStats(ip);
+
+  if (Date.now() < budgetBlockedUntil) return reply(402, { error: "budget", until: budgetResets });
+
+  const why = limited(ip);
+  if (why) return reply(429, { error: why });
 
   const game = GAMES[input.game ?? "doom"];
   if (!game) return reply(400, { error: "unknown game" });
