@@ -41,6 +41,7 @@ const PRICES = {
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
   "claude-haiku-4-5": { in: 1, out: 5 },
   "claude-sonnet-5": { in: 2, out: 10 },
+  "claude-fable-5-1": { in: 10, out: 50 },
 };
 // Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
 const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
@@ -61,6 +62,12 @@ const MS_DEFAULT_MOVES = 5;
 // high/xhigh/max are not offered: at high, 2 of 3 mid-game turns hit the 6000-token / 60 s budget in testing.
 const PUBLIC_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
 const MS_PUBLIC_EFFORTS = ["low", "medium"];
+// Not offered to visitors: Fable costs several times more per call than Sonnet, so only a page served from localhost
+// (an origin that is in ALLOWED_ORIGIN only while testing) may ask for it, and only for the doom-nav game.
+const DEV_MODELS = { fable: "claude-fable-5-1" };
+const FABLE_EFFORTS = ["low", "medium", "high"];
+const isFable = (m) => /^claude-fable-5/.test(m);
+const isDevOrigin = () => /^http:\/\/localhost(:\d+)?$/.test(reqOrigin);
 // Picks a public preset from the request: model by name, effort from an allowlist, anything else falls back.
 function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
   const c = input.config && typeof input.config === "object" ? input.config : {};
@@ -336,9 +343,19 @@ Notes: you cannot remember earlier screens, so every turn write "notes" (under 2
 If you die (the screen turns red), press use to restart the level.
 The message may warn that you are blocked, have made no progress, keep firing or that a use changed nothing. When it does, change what you are doing.
 Always call the act tool.`;
+// Fable always thinks (there is no thinking field to send) and rejects a forced tool call with a 400, so it gets
+// automatic tool choice, an effort level (default low) and room to think before it calls the tool.
+const navChoice = (input) => {
+  const c = input.config && typeof input.config === "object" ? input.config : {};
+  if (isDevOrigin() && c.model === "fable") return { model: DEV_MODELS.fable, effort: FABLE_EFFORTS.includes(c.effort) ? c.effort : "low" };
+  return doomChoice(input);
+};
 GAMES["doom-nav"] = {
   ...GAMES.doom,
-  maxTokens: (model, choice) => GAMES.doom.maxTokens(model, choice) + 100,
+  choose: navChoice,
+  maxTokens: (model, choice) => (isFable(model) ? 5000 : GAMES.doom.maxTokens(model, choice) + 100),
+  extras: (model, choice) => (isFable(model) ? { output_config: { effort: choice.effort } } : GAMES.doom.extras(model, choice)),
+  toolChoice: (model, choice) => (isFable(model) ? { type: "auto" } : GAMES.doom.toolChoice(model, choice)),
   system: NAV_SYSTEM,
   tool: {
     name: "act",
