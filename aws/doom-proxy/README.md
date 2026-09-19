@@ -6,7 +6,8 @@ API key never leaves AWS. Requests pick a game with a `game` field (default `doo
 system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
 client can't change what the model is asked to do. Responses include estimated token usage and cost.
 
-Games: `doom` (default), `minesweeper`, `minesweeper-verify` and `minesweeper-review`.
+Games: `doom` (default), `doom-nav` (what the Doom page sends now), `minesweeper`, `minesweeper-verify` and
+`minesweeper-review`.
 
 Minesweeper requests may carry `config: {model: "haiku"|"sonnet", effort: "low"|"medium"}`. The proxy maps these
 names to model IDs itself; anything else (including other models, `high`/`xhigh`/`max`, or junk) falls back to the
@@ -21,6 +22,18 @@ call with thinking disabled (fast, cheap); `low` gives Sonnet adaptive thinking 
 `tool_choice: auto` and a 4000-token budget (a forced tool call would suppress the thinking). Effort only applies to
 Sonnet, unknown models and efforts fall back to the defaults (`MODEL`, `off`), and a request with no config behaves
 exactly as before.
+
+`doom-nav` takes the same requests and `config`, and adds guidance on what doors, doorways, stairs and switches look
+like, how to leave a room, that corpses and gibs are scenery, and to press `use` to restart after dying. Its tool has a
+`notes` field instead of `thought`: Claude's own memory (at most 240 characters), returned as both `notes` and
+`thought` and sent back by the page in `notes` on the next turn, because the model otherwise forgets every earlier
+screenshot. The page also sends four progress signals: `blocked` (the last move changed nothing), `stall` (turns
+without progress), `fired` (turns in a row spent firing) and `usedNothing` (the last `use` changed nothing). Only
+booleans and integers are taken from them, and the warning wording is ours. `notes` is treated like any other client
+text: printable ASCII, 300 characters, placed on a labelled line of the user message, never in the system prompt. The
+prompt tells Claude that the page taps `use` after every forward move, which the page does, so a closed door opens
+when Claude walks into it. It costs about 40% more per step than `doom` (roughly 0.5 cents on Sonnet 5, 0.23 cents on
+Haiku 4.5) because of the longer prompt and the notes.
 
 ## Live-play results
 

@@ -93,6 +93,9 @@ function formatBoard(board, label = "Board") {
 }
 // Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
 const cleanText = (s, n) => String(s ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const validImage = (image) => typeof image === "string" && image.length <= MAX_IMAGE_B64 && /^[A-Za-z0-9+/=]+$/.test(image);
+const recentActions = (history) =>
+  Array.isArray(history) ? history.slice(-6).map((h) => `${String(h?.action).slice(0, 16)}x${Number(h?.repeat) || 1}`).join(", ") : "";
 const inRange = (n, size) => Number.isInteger(n) && n >= 0 && n < size;
 const validMoves = (moves, rows, cols) => (Array.isArray(moves) ? moves : [])
   .filter((m) => MS_ACTIONS.includes(m?.action) && inRange(m.row, rows) && inRange(m.col, cols))
@@ -136,10 +139,8 @@ Always call the act tool. Keep "thought" to one short sentence.`,
     // blocked/stall come from the page, which can tell whether the last move changed the picture.
     // Only the values are taken from the client; the wording is ours.
     content({ image, stats, history, blocked, stall }) {
-      if (typeof image !== "string" || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image)) return null;
-      const recent = Array.isArray(history)
-        ? history.slice(-6).map((h) => `${String(h.action).slice(0, 16)}x${Number(h.repeat) || 1}`).join(", ")
-        : "";
+      if (!validImage(image)) return null;
+      const recent = recentActions(history);
       const steps = Number.isInteger(stall) ? Math.min(Math.max(stall, 0), 50) : 0;
       const warnings = [];
       if (blocked === true) warnings.push("Your last move did not change the view: something solid is in the way.");
@@ -318,6 +319,75 @@ State the pattern or rule. Do not mention coordinates from this particular board
   },
 };
 
+// Doom with a description of what doors, doorways and stairs look like, rules for leaving rooms and for scenery that is
+// not an enemy, and a "notes" field the page hands back next turn (the model otherwise forgets every earlier screen).
+// The page also taps the use key after every forward move, so this prompt says walking into a door opens it. The
+// original "doom" game above is kept unchanged for pages that are still cached.
+const NAV_SYSTEM = `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, kill monsters, and explore the level toward its exit by leaving each room through a door, stairway or corridor you have not used yet.
+Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use presses switches and opens doors, enter confirms menu items (use it on title and menu screens), wait does nothing. The game also taps use for you after every forward move, so walking straight into a door opens it.
+Combat: when an enemy is visible, turn until it is centered in the crosshair, then fire in bursts (repeat 3-6). Keep moving to avoid damage, and walk over health and ammo pickups. Enemies move, flinch or shoot back; a corpse, gibs or a pool of blood is scenery, so if a target does not react to 2-3 bursts, stop firing and move on.
+Ways onward:
+- Door: a flat slab set into a wall, usually plainer or smoother than the walls around it, often with a frame or a dark seam at its edge. A closed door looks like a wall, so at the end of a corridor walk into any plain slab, facing it squarely (it should fill the middle of your view): the game taps use for you after every forward move and the door slides up in about a second, then walk through. If nothing opens once you are pressed against it, it is only a wall.
+- Doorway or corridor: a dark gap or opening in a wall. Walk into it.
+- Stairs: bands of steps going up or down, or a floor that is higher or lower than yours (from the top, stairs down look like a dark gap in the floor with stripes below). Walk straight at them and keep going; you climb steps automatically and do not need use. A lift is a platform you step onto.
+- Switch: a small wall panel; use it when you are next to it. A switch or door marked EXIT ends the level.
+Exploring: leave each room by a door, stairway or opening you have not used yet, and do not wander around a room you have already seen. When the way is clear, walk with a long repeat (7-8) to cover ground, and use short ones near walls, doors and enemies. A corridor that ends at a wall usually bends: turn toward the side where the floor or walls continue (repeat 4-6 for a bend, 7-8 for a sharp corner) instead of turning around. If nothing is open, back up and head a different way, and never turn a little left then a little right in the same spot. Blue floors and water are harmless; green slime and lava hurt, so cross them only if you must.
+Notes: you cannot remember earlier screens, so every turn write "notes" (under 200 characters): where you are, the exits, doors and stairs you have seen and whether each is tried, and your next goal. Your notes are shown back to you next turn. They are memory, not proof: check them against the new screenshot and change plan when they no longer fit.
+If you die (the screen turns red), press use to restart the level.
+The message may warn that you are blocked, have made no progress, keep firing or that a use changed nothing. When it does, change what you are doing.
+Always call the act tool.`;
+GAMES["doom-nav"] = {
+  ...GAMES.doom,
+  maxTokens: (model, choice) => GAMES.doom.maxTokens(model, choice) + 100,
+  system: NAV_SYSTEM,
+  tool: {
+    name: "act",
+    description: "Choose the next action in Doom.",
+    input_schema: {
+      type: "object",
+      properties: {
+        notes: { type: "string", maxLength: 240, description: "Your memory for the next turn: where you are, exits seen (tried or not), next goal." },
+        action: { type: "string", enum: ACTIONS },
+        repeat: { type: "integer", minimum: 1, maximum: 8, description: "Duration in 100ms ticks" },
+      },
+      required: ["notes", "action"],
+    },
+  },
+  // Only the values of blocked/stall/notes come from the client; the wording around them is ours, and notes are
+  // printable ASCII, length-capped and labelled, like any other client text that reaches a prompt.
+  content({ image, stats, history, blocked, stall, fired, usedNothing, notes }) {
+    if (!validImage(image)) return null;
+    const steps = Number.isInteger(stall) ? Math.min(Math.max(stall, 0), 50) : 0;
+    const shots = Number.isInteger(fired) ? Math.min(Math.max(fired, 0), 50) : 0;
+    const warnings = [];
+    if (blocked === true) {
+      warnings.push("Your last move did not change the view: you are pressed against something solid, and a door would have opened by now. Turn toward the side where the corridor or floor continues (repeat 4-8) or back up, then go another way.");
+    }
+    if (usedNothing === true) {
+      warnings.push("Your last use changed nothing, so that is only a wall (or a locked door): do not use it again. Turn toward the side where the corridor or floor continues (repeat 4-8) or back up, then go another way.");
+    }
+    if (steps >= 3) {
+      warnings.push(`You have made no forward progress for ${steps} steps. Stop turning back and forth: commit to one turn toward open space (repeat 5-8) or back up, then walk forward.`);
+    }
+    if (shots >= 4) {
+      warnings.push(`You have fired ${shots} turns in a row. Real enemies react by moving, flinching or attacking. If nothing is dying or hurting you, your target is probably scenery (a corpse, gibs or a light): stop firing and go explore.`);
+    }
+    return [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+      {
+        type: "text",
+        text: `Recent actions: ${recentActions(history) || "none"}. ${String(stats || "").slice(0, 100)}\nYour notes from last turn: ${cleanText(notes, 300) || "(none yet)"}${warnings.length ? `\nWARNING: ${warnings.join(" ")}` : ""}`,
+      },
+    ];
+  },
+  // The notes double as the "thought" the page shows.
+  result(call) {
+    if (!ACTIONS.includes(call.action)) return null;
+    const notes = cleanText(call.notes, 240);
+    return { thought: notes, notes, action: call.action, repeat: Math.min(Math.max(Number(call.repeat) || 2, 1), 8) };
+  },
+};
+
 // Anthropic answers 400 when the account's spend limit or credit balance is exhausted. Recognise it so visitors get
 // a clear message, and remember it briefly so the proxy does not keep calling an API that will refuse.
 const BUDGET_ERROR = /usage limit|credit balance/i;
@@ -439,7 +509,8 @@ export const handler = async (event) => {
   const why = limited(ip);
   if (why) return reply(429, { error: why });
 
-  const game = GAMES[input.game ?? "doom"];
+  const gameName = input.game ?? "doom";
+  const game = typeof gameName === "string" && Object.hasOwn(GAMES, gameName) ? GAMES[gameName] : null;
   if (!game) return reply(400, { error: "unknown game" });
   const content = game.content(input);
   if (!content) return reply(400, { error: "bad input" });
