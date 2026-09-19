@@ -4,6 +4,16 @@
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // A page served from localhost (never the live site) can also pick Claude Fable 5.1, which the proxy refuses from any
+  // other origin, and lift the run limits with ?budget=5&steps=150, because Fable costs about five times as much per
+  // step. ?effort=low|medium|high sets its thinking effort. This is for recording demos.
+  const LOCAL = location.hostname === "localhost";
+  const query = new URLSearchParams(location.search);
+  const localLimit = (name, max, fallback) => { const n = Number(query.get(name)); return LOCAL && n > 0 && n <= max ? n : fallback; };
+  const maxSteps = Math.floor(localLimit("steps", 500, cfg.maxSteps));
+  const budgetUsd = localLimit("budget", 20, cfg.budgetUsd);
+  const fableEffort = ["low", "medium", "high"].includes(query.get("effort")) ? query.get("effort") : "low";
+
   // js-dos v8 key codes (GLFW numbering).
   const KEYS = {
     forward: [265], back: [264], left: [263], right: [262],
@@ -18,12 +28,19 @@
   const history = [];
   const spent = { usd: 0, tokens: 0, priced: true };
 
-  const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
+  const MODELS = LOCAL ? ["haiku", "sonnet", "fable"] : ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
   const DEFAULTS = { model: "sonnet" };
   const SETTINGS_KEY = "doom-settings-v1";
   const sanitize = (v) => ({ model: MODELS.includes(v?.model) ? v.model : DEFAULTS.model });
   let settings;
   try { settings = sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch { settings = sanitize({}); }
+  if (LOCAL) {
+    const option = document.createElement("option");
+    option.value = "fable";
+    option.textContent = "Fable 5.1 (local only)";
+    $("doom-model").appendChild(option);
+    if (query.get("model") === "fable") settings = sanitize({ model: "fable" });
+  }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
 
   // Measured against the live proxy with the navigation prompt (Sonnet: about 20 runs of 20-60 steps; Haiku: one
@@ -31,11 +48,12 @@
   const HINTS = {
     haiku: "Haiku: about 1.4 seconds and 0.23 cents per step, less than half the cost of Sonnet. In a short test run it explored quickly; it has been less careful than Sonnet in earlier tests.",
     sonnet: "Sonnet: about 2 seconds and 0.5 cents per step, so a full 150-step run costs about 75 cents. In test runs it got through closed doors, wrote itself short notes and mostly turned away from walls instead of pushing into them.",
+    fable: "Fable 5.1: about 6 seconds and 2.6 cents per step, so 100 steps cost about $2.60. In two test runs it followed a corridor bend and reached the fight beyond the first door once; the other time it wandered the start area.",
   };
   function renderSettings() {
     $("doom-model").value = settings.model;
     $("doom-model").disabled = running;
-    $("doom-hint").textContent = `${HINTS[settings.model]} A run stops at ${cfg.maxSteps} steps or $${cfg.budgetUsd}.`;
+    $("doom-hint").textContent = `${HINTS[settings.model]} A run stops at ${maxSteps} steps or $${budgetUsd}.`;
   }
 
   function log(text, cls) {
@@ -157,7 +175,7 @@
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const body = JSON.stringify({ game: "doom-nav", image, history, stats: `Step ${steps}.`, blocked, stall, fired: fireStreak, usedNothing, notes, config: { model: settings.model, effort: "off" } });
+    const body = JSON.stringify({ game: "doom-nav", image, history, stats: `Step ${steps}.`, blocked, stall, fired: fireStreak, usedNothing, notes, config: { model: settings.model, effort: settings.model === "fable" ? fableEffort : "off" } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -189,8 +207,8 @@
     looping = true;
     let budgetStop = false;
     await startLevel();
-    while (running && steps < cfg.maxSteps) {
-      if (spent.usd >= cfg.budgetUsd) { budgetStop = true; break; }
+    while (running && steps < maxSteps) {
+      if (spent.usd >= budgetUsd) { budgetStop = true; break; }
       try {
         const { image, sig } = await grabFrame();
         trackProgress(sig);
@@ -219,8 +237,8 @@
     }
     looping = false;
     stop();
-    if (budgetStop) log(`Stopped at this run's $${cfg.budgetUsd} budget.`);
-    else if (steps >= cfg.maxSteps) log(`Reached ${cfg.maxSteps}-step limit for this session.`);
+    if (budgetStop) log(`Stopped at this run's $${budgetUsd} budget.`);
+    else if (steps >= maxSteps) log(`Reached ${maxSteps}-step limit for this session.`);
   }
 
   // After Stop the current turn still finishes, and a new run started meanwhile would run two loops at once,
