@@ -13,6 +13,7 @@
 
   let ci = null;
   let running = false;
+  let looping = false; // true from the start of loop() until it exits
   let steps = 0;
   const history = [];
   const spent = { usd: 0, tokens: 0, priced: true };
@@ -25,12 +26,11 @@
   try { settings = sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch { settings = sanitize({}); }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
 
-  // Measured against the live proxy. Sonnet: four 30-step runs with the menus scripted, two before and two after the
-  // navigation prompt and progress warnings (forward progress rose from 15-17 to 19-23 successful moves per run).
-  // Haiku was measured only before that change.
+  // Measured against the live proxy with the navigation prompt (Sonnet: about 20 runs of 20-60 steps; Haiku: one
+  // 30-step run, so its hint claims little). Cost includes the notes Claude writes each turn.
   const HINTS = {
-    haiku: "Haiku: about 1 second and 0.14 cents per step. In earlier test runs it walked into walls more, and once spent most of the run stuck at the menus.",
-    sonnet: "Sonnet: about 2 seconds and 0.35 cents per step, so a full 150-step run costs about 50 cents. In test runs it moved forward steadily and usually turned away from walls instead of pushing into them.",
+    haiku: "Haiku: about 1.4 seconds and 0.23 cents per step, less than half the cost of Sonnet. In a short test run it explored quickly; it has been less careful than Sonnet in earlier tests.",
+    sonnet: "Sonnet: about 2 seconds and 0.5 cents per step, so a full 150-step run costs about 75 cents. In test runs it got through closed doors, wrote itself short notes and mostly turned away from walls instead of pushing into them.",
   };
   function renderSettings() {
     $("doom-model").value = settings.model;
@@ -60,6 +60,10 @@
   let lastAction = null;
   let stall = 0; // steps since the last move that actually changed the view
   let blocked = false; // the last move changed nothing
+  let usedNothing = false; // the last use changed nothing (a wall, or a locked door)
+  let notes = ""; // Claude's own memory, written each turn and handed back on the next (it sees one screenshot at a time)
+  const FIRE_NOTICE = 4; // turns in a row spent firing before the log says Claude is being asked whether its target is real
+  let fireStreak = 0; // consecutive turns spent firing
 
   // A 32x20 grey thumbnail: enough to tell whether the picture changed.
   function signature(canvas) {
@@ -82,29 +86,52 @@
   // Movement that changes the view resets the count. Movement that does not (a wall), turning and waiting add to it.
   function trackProgress(sig) {
     blocked = false;
+    usedNothing = false;
     if (!prevSig || !lastAction) return;
     const changed = changeBetween(prevSig, sig) >= BLOCKED_DIFF;
     if (MOVES.includes(lastAction)) {
       if (changed) stall = 0;
       else { stall++; blocked = true; }
     } else if (IDLE.includes(lastAction)) stall++;
+    else if (lastAction === "use" && !changed) usedNothing = true; // an opening door changes the picture; a wall does not
     if (stall === STALL_NOTICE) log(`No forward progress for ${STALL_NOTICE} steps, so Claude is being told it is going in circles.`, "note");
   }
 
-  async function grabFrame() {
+  async function screenshotCanvas() {
     const img = await ci.screenshot(); // ImageData
     const c = document.createElement("canvas");
     c.width = img.width;
     c.height = img.height;
     c.getContext("2d").putImageData(img, 0, 0);
+    return c;
+  }
+
+  async function grabFrame() {
+    const c = await screenshotCanvas();
     return { image: c.toDataURL("image/jpeg", 0.7).split(",")[1], sig: signature(c) };
   }
 
+  // A closed door looks like a wall and Claude often walks away from it, so after every forward move the page taps the
+  // use key: walking into a door opens it. If the picture changes the door is sliding up, so give it time to finish.
+  const AUTO_OPEN = true;
+  const DOOR_SLIDE_MS = 800; // a door takes about a second of game time to open
+  async function openDoor() {
+    const before = signature(await screenshotCanvas());
+    codesDown(KEYS.use);
+    await sleep(100);
+    codesUp(KEYS.use);
+    await sleep(250);
+    if (changeBetween(before, signature(await screenshotCanvas())) >= BLOCKED_DIFF) await sleep(DOOR_SLIDE_MS);
+  }
+  const codesDown = (codes) => codes.forEach((k) => ci.sendKeyEvent(k, true));
+  const codesUp = (codes) => codes.forEach((k) => ci.sendKeyEvent(k, false));
+
   async function hold(action, ticks) {
     const codes = KEYS[action] || [];
-    codes.forEach((k) => ci.sendKeyEvent(k, true));
+    codesDown(codes);
     await sleep(ticks * 100);
-    codes.forEach((k) => ci.sendKeyEvent(k, false));
+    codesUp(codes);
+    if (AUTO_OPEN && action === "forward") await openDoor();
   }
 
   // The proxy answers 402 {error:"budget"} when the API account is out of budget, and 429 for our own limits.
@@ -130,7 +157,7 @@
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
   async function decide(image) {
-    const body = JSON.stringify({ image, history, stats: `Step ${steps}.`, blocked, stall, config: { model: settings.model, effort: "off" } });
+    const body = JSON.stringify({ game: "doom-nav", image, history, stats: `Step ${steps}.`, blocked, stall, fired: fireStreak, usedNothing, notes, config: { model: settings.model, effort: "off" } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -139,18 +166,42 @@
     }
   }
 
+  // The title and menu screens are not the game. Left to Claude they cost steps, and Up from New Game lands on Quit
+  // Game, whose Y/N dialog Claude has no key to answer (it once burned 50 steps stuck there). So the page taps Enter
+  // through the menus once, then hands over.
+  const MENU_TAPS = 7; // title, main menu, New Game, episode, skill, then spares (Enter does nothing during play)
+  const DOOM_LOAD_MS = 5500; // Doom takes a few seconds to start after js-dos reports the emulator ready
+  let readyAt = 0;
+  let inLevel = false;
+  async function startLevel() {
+    if (inLevel) return;
+    log("Starting the level: the page presses Enter through the title menus.", "note");
+    await sleep(Math.max(0, readyAt + DOOM_LOAD_MS - Date.now()));
+    for (let i = 0; i < MENU_TAPS && running; i++) {
+      await hold("enter", 2);
+      await sleep(1300);
+    }
+    await sleep(1500); // the level fades in
+    inLevel = running;
+  }
+
   async function loop() {
+    looping = true;
     let budgetStop = false;
+    await startLevel();
     while (running && steps < cfg.maxSteps) {
       if (spent.usd >= cfg.budgetUsd) { budgetStop = true; break; }
       try {
         const { image, sig } = await grabFrame();
         trackProgress(sig);
         ci.pause?.(); // turn-based: game freezes while the model thinks
-        const { thought, action, repeat, usage } = await decide(image);
+        const { thought, action, repeat, usage, notes: next } = await decide(image);
         ci.resume?.();
         prevSig = sig;
         lastAction = action;
+        notes = typeof next === "string" ? next : "";
+        fireStreak = action === "fire" ? fireStreak + 1 : 0;
+        if (fireStreak === FIRE_NOTICE) log(`Claude has fired ${FIRE_NOTICE} turns in a row, so it is being asked whether its target is real.`, "note");
         steps++;
         if (usage) {
           spent.tokens += usage.inputTokens + usage.outputTokens;
@@ -166,14 +217,18 @@
         break;
       }
     }
+    looping = false;
     stop();
     if (budgetStop) log(`Stopped at this run's $${cfg.budgetUsd} budget.`);
     else if (steps >= cfg.maxSteps) log(`Reached ${cfg.maxSteps}-step limit for this session.`);
   }
 
+  // After Stop the current turn still finishes, and a new run started meanwhile would run two loops at once,
+  // so the button stays disabled until the loop has actually exited.
   function stop() {
     running = false;
-    $("doom-toggle").textContent = "Let Claude play";
+    $("doom-toggle").textContent = looping ? "Stopping..." : "Let Claude play";
+    $("doom-toggle").disabled = looping;
     renderSettings();
   }
 
@@ -185,6 +240,10 @@
     lastAction = null;
     stall = 0;
     blocked = false;
+    usedNothing = false;
+    notes = "";
+    fireStreak = 0;
+    history.length = 0; // "Recent actions" belong to this run, not the previous one
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     showCost();
     $("doom-toggle").textContent = "Stop";
@@ -207,6 +266,7 @@
     onEvent: (event, arg) => {
       if (event === "ci-ready") {
         ci = arg;
+        readyAt = Date.now();
         $("doom-toggle").disabled = false;
         log("Game ready.");
       }
