@@ -35,6 +35,26 @@ Parameters:
     Description: Model for Minesweeper and its post-mortems (Doom uses Model)
 
 Resources:
+  ResultsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: djmckay-minesweeper-results
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
   DoomProxyFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -50,12 +70,19 @@ Resources:
       Policies:
         - Statement:
             - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+              Resource: !GetAtt ResultsTable.Arn
+        - Statement:
+            - Effect: Allow
               Action: secretsmanager:GetSecretValue
               # Secrets Manager appends a random suffix to the ARN, hence the trailing -*
               Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
       Environment:
         Variables:
           ANTHROPIC_SECRET_ID: !Ref AnthropicSecretName
+          RESULTS_TABLE: !Ref ResultsTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           DAILY_CALL_CAP: !Ref DailyCallCap
           DAILY_USD_CAP: !Ref DailyUsdCap
@@ -68,6 +95,9 @@ Resources:
         AuthType: NONE
 
 Outputs:
+  ResultsTableName:
+    Description: DynamoDB table holding per-setup Minesweeper counters (kept if the stack is deleted)
+    Value: !Ref ResultsTable
   FunctionUrl:
     Description: Paste into proxyUrl in static-site/src/doom.njk
     Value: !GetAtt DoomProxyFunctionUrl.FunctionUrl

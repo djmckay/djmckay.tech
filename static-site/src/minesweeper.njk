@@ -49,6 +49,7 @@ extraStyles:
         </label>
       </div>
       <p id="ms-hint" class="small text-muted mb-0 ms-hint"></p>
+      <p class="small text-muted mb-0 ms-hint">When Claude finishes a game, its outcome, settings, cost and time are counted anonymously (no personal data) for the <a href="/minesweeper/results/">live results page</a>. Games you play yourself are not counted.</p>
     </div>
 
     <div class="ms-grid">
@@ -74,7 +75,8 @@ extraStyles:
 
 <script>
   window.MS_CONFIG = {
-    proxyUrl: "https://bgcxjj324xcfvxmsfpbv627pp40xhisu.lambda-url.us-east-1.on.aws/",
+    proxyUrl: "{{ minesweeper.proxyUrl }}",
+    resultVersion: "{{ minesweeper.resultVersion }}",
   };
 </script>
 <script src="/scripts/minesweeper-engine.js"></script>

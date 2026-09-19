@@ -41,6 +41,7 @@
   const verifierConfig = () => ({ model: settings.vModel, effort: settings.vEffort });
 
   let game, running, calls, checks, note, stuck;
+  let gameSettings, activeMs, runStart, humanMoved, recorded, refStats; // for the anonymous live-results report
   let flagMode = false; // touch-friendly alternative to right-click
 
   // The notebook lives only in this browser, so one visitor's lessons never reach anyone else's prompts.
@@ -252,6 +253,14 @@
         const v = byIndex.get(i);
         return { ...m, verdict: v ? v.verdict : "unproven", reason: v ? v.reason : "no verdict returned" };
       });
+      for (const m of annotated) {
+        const cell = game.cells[m.row]?.[m.col];
+        if (!cell || cell.open) continue;
+        const mistake = (m.action === "reveal" && cell.mine) || (m.action === "flag" && !cell.mine);
+        if (m.verdict === "approve" && mistake) refStats.approvedWrong++;
+        if (m.verdict === "wrong" && !mistake) refStats.rejectedFine++;
+        if (m.verdict !== "approve" && mistake) refStats.flagged++;
+      }
       const tally = (kind) => annotated.filter((m) => m.verdict === kind).length;
       log(`Verifier: ${tally("approve")} approved, ${tally("unproven")} unproven, ${tally("wrong")} wrong. ${review.summary}`, "verify");
       for (const m of annotated.filter((x) => x.verdict !== "approve")) {
@@ -298,6 +307,34 @@
     }
   }
 
+  // Reports one finished Claude game, anonymously, for the results page. Never blocks or breaks the game.
+  // A game only counts if Claude played it start to finish on the settings it started with.
+  function recordResult(outcome) {
+    if (recorded || humanMoved || !spent.priced || !gameSettings) return;
+    const same = ["level", "model", "effort", "verifier", "vModel", "vEffort"].every((k) => gameSettings[k] === settings[k]);
+    if (!same) return;
+    recorded = true;
+    post({
+      game: "minesweeper-result",
+      version: cfg.resultVersion,
+      level: gameSettings.level,
+      model: gameSettings.model,
+      effort: gameSettings.effort,
+      verifier: gameSettings.verifier,
+      vModel: gameSettings.vModel,
+      vEffort: gameSettings.vEffort,
+      outcome,
+      cells: game.opened,
+      calls,
+      checks,
+      secs: Math.max(1, Math.round(activeMs / 1000)),
+      costUsd: Number(spent.usd.toFixed(6)),
+      flagged: refStats.flagged,
+      approvedWrong: refStats.approvedWrong,
+      rejectedFine: refStats.rejectedFine,
+    }).catch(() => {});
+  }
+
   async function loop() {
     const mine = epoch;
     const lvl = level();
@@ -342,20 +379,29 @@
       note = results.length ? results.join("; ") : "The referee rejected every move you proposed.";
       render();
       stuck = anyOk ? 0 : stuck + 1;
-      if (stuck >= STUCK_LIMIT) { log("Claude got stuck making invalid moves.", "err"); break; }
+      if (stuck >= STUCK_LIMIT) { log("Claude got stuck making invalid moves.", "err"); stopReason = "stuck"; break; }
     }
     render(); // clears the "thinking" status
     stop();
-    if (game.status === "won") log("Cleared the board.");
-    else if (game.status === "lost") {
+    if (game.status === "won") {
+      log("Cleared the board.");
+      recordResult("won");
+    } else if (game.status === "lost") {
       log("Hit a mine.");
       if (fatal && mine === epoch) await reflect(fatal, mine);
-    } else if (stopReason === "turns") log(`Reached the ${lvl.maxCalls}-turn limit for this game.`);
-    else if (stopReason === "budget") log(`Stopped at this game's $${lvl.budgetUsd} budget.`);
+      if (mine === epoch) recordResult("lost");
+    } else if (stopReason === "turns") {
+      log(`Reached the ${lvl.maxCalls}-turn limit for this game.`);
+      recordResult("stopped");
+    } else if (stopReason === "budget") {
+      log(`Stopped at this game's $${lvl.budgetUsd} budget.`);
+      recordResult("stopped");
+    } else if (stopReason === "stuck") recordResult("stopped");
   }
 
   function stop() {
     running = false;
+    if (runStart) { activeMs += Date.now() - runStart; runStart = null; }
     $("ms-toggle").textContent = "Let Claude play";
     $("ms-toggle").disabled = finished();
     renderSettings();
@@ -366,6 +412,12 @@
     running = false;
     calls = 0;
     checks = 0;
+    gameSettings = null;
+    activeMs = 0;
+    runStart = null;
+    humanMoved = false;
+    recorded = false;
+    refStats = { flagged: 0, approvedWrong: 0, rejectedFine: 0 };
     note = "none";
     stuck = 0;
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
@@ -385,6 +437,7 @@
     const res = action === "flag" ? game.flag(r, c) : game.reveal(r, c);
     render();
     if (!res.ok) return;
+    humanMoved = true;
     if (finished()) {
       $("ms-status").textContent = game.status === "won" ? "You cleared the board!" : "You hit a mine.";
       $("ms-toggle").disabled = true;
@@ -414,6 +467,8 @@
     if (running) { stop(); return; }
     if (finished()) return;
     running = true;
+    gameSettings ??= { ...settings };
+    runStart = Date.now();
     $("ms-toggle").textContent = "Stop";
     renderSettings();
     loop();
