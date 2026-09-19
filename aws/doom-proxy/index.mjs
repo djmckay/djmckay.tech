@@ -70,9 +70,8 @@ function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
 }
 const msChoice = (input) =>
   presetChoice(input, { defaultModel: process.env.MINESWEEPER_MODEL || MODEL, efforts: MS_PUBLIC_EFFORTS, defaultEffort: MS_EFFORT });
-// Doom: "off" = no thinking (forced tool call, fast); low/medium/high = adaptive thinking at that effort (Sonnet only).
-// xhigh/max are not offered: they are slower still and would blow the token and time budget.
-const DOOM_EFFORTS = ["off", "low", "medium", "high"];
+// Doom: "off" = no thinking (forced tool call, fast); "low" = adaptive thinking at low effort (Sonnet only).
+const DOOM_EFFORTS = ["off", "low"];
 const doomChoice = (input) => presetChoice(input, { defaultModel: MODEL, efforts: DOOM_EFFORTS, defaultEffort: "off" });
 const msMoveCap = (n) => (Number.isInteger(n) ? Math.min(Math.max(n, 1), MS_MAX_MOVES) : MS_DEFAULT_MOVES);
 
@@ -111,7 +110,7 @@ const GAMES = {
   doom: {
     choose: doomChoice,
     // Thinking tokens count toward max_tokens, so an answer needs headroom when thinking is on.
-    maxTokens: (model, { effort }) => (!thinksAdaptively(model) || effort === "off" ? 200 : effort === "high" ? 8000 : 4000),
+    maxTokens: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? 4000 : 200),
     extras: (model, { effort }) =>
       !thinksAdaptively(model) ? {} : effort === "off" ? { thinking: { type: "disabled" } } : { thinking: { type: "adaptive" }, output_config: { effort } },
     toolChoice: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? { type: "auto" } : undefined),
