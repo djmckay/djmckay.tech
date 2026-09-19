@@ -25,10 +25,12 @@
   try { settings = sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); } catch { settings = sanitize({}); }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
 
-  // From two 40-step test runs of each model against the live proxy.
+  // Measured against the live proxy. Sonnet: four 30-step runs with the menus scripted, two before and two after the
+  // navigation prompt and progress warnings (forward progress rose from 15-17 to 19-23 successful moves per run).
+  // Haiku was measured only before that change.
   const HINTS = {
-    haiku: "Haiku: about 1 second and 0.14 cents per step. In two test runs it walked into walls more, and once spent most of the run stuck at the menus.",
-    sonnet: "Sonnet: about 2 seconds and 0.3 cents per step, so a full 150-step run costs under 50 cents. In two test runs it got through the menus in about 10 steps and rarely got stuck.",
+    haiku: "Haiku: about 1 second and 0.14 cents per step. In earlier test runs it walked into walls more, and once spent most of the run stuck at the menus.",
+    sonnet: "Sonnet: about 2 seconds and 0.35 cents per step, so a full 150-step run costs about 50 cents. In test runs it moved forward steadily and usually turned away from walls instead of pushing into them.",
   };
   function renderSettings() {
     $("doom-model").value = settings.model;
