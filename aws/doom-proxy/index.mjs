@@ -116,8 +116,10 @@ const GAMES = {
       !thinksAdaptively(model) ? {} : effort === "off" ? { thinking: { type: "disabled" } } : { thinking: { type: "adaptive" }, output_config: { effort } },
     toolChoice: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? { type: "auto" } : undefined),
     system: `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, find and kill monsters, explore toward the level exit.
-Controls per turn: one action held for a short time. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
-Tips: turn until an enemy is centered in the crosshair, then fire with a repeat of 3-6. Keep moving to avoid damage. If a wall fills the view, turn. Use doors and switches when facing them.
+Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
+Combat: when an enemy is visible, turn until it is centered in the crosshair, then fire in bursts (repeat 3-6). Keep moving to avoid damage, and walk over health and ammo pickups.
+Navigation: a wall filling the view means you are blocked; do not keep pushing forward. Turn a lot (repeat 7-8) or back up first, then head down whichever opening you find: dark gaps, doorways and corridors. Wooden or brown panels and doorframes are doors: walk up to one and use it. Prefer directions you have not tried, and never turn a little left then a little right in the same spot. Commit to one direction with a big turn.
+The message may warn that you are blocked or have made no progress. When it does, change what you are doing.
 Always call the act tool. Keep "thought" to one short sentence.`,
     tool: {
       name: "act",
@@ -132,14 +134,22 @@ Always call the act tool. Keep "thought" to one short sentence.`,
         required: ["thought", "action"],
       },
     },
-    content({ image, stats, history }) {
+    // blocked/stall come from the page, which can tell whether the last move changed the picture.
+    // Only the values are taken from the client; the wording is ours.
+    content({ image, stats, history, blocked, stall }) {
       if (typeof image !== "string" || image.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/=]+$/.test(image)) return null;
       const recent = Array.isArray(history)
         ? history.slice(-6).map((h) => `${String(h.action).slice(0, 16)}x${Number(h.repeat) || 1}`).join(", ")
         : "";
+      const steps = Number.isInteger(stall) ? Math.min(Math.max(stall, 0), 50) : 0;
+      const warnings = [];
+      if (blocked === true) warnings.push("Your last move did not change the view: something solid is in the way.");
+      if (steps >= 3) {
+        warnings.push(`You have made no forward progress for ${steps} steps. Stop turning back and forth: commit to one big turn (repeat 7 or 8) or back up, then walk forward.`);
+      }
       return [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
-        { type: "text", text: `Recent actions: ${recent || "none"}. ${String(stats || "").slice(0, 100)}` },
+        { type: "text", text: `Recent actions: ${recent || "none"}. ${String(stats || "").slice(0, 100)}${warnings.length ? `\nWARNING: ${warnings.join(" ")}` : ""}` },
       ];
     },
     result(call) {
