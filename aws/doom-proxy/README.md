@@ -43,7 +43,7 @@ A page served from `http://localhost` (an origin that is in `AllowedOrigin` only
 `config.effort: "low"|"medium"|"high"`; every other origin, game or spelling gets the usual default. Fable always
 thinks and rejects a forced tool call, so it gets automatic tool choice and a 5000-token budget.
 
-## When thinking uses the whole budget
+## When thinking runs out of room, or out of time
 
 Thinking tokens count toward `max_tokens`, so a hard board can think past the ceiling and stop before it calls the
 tool, which used to surface as `502 {"error":"no action"}` and lose the turn. Two things guard against it: the
@@ -53,7 +53,14 @@ Minesweeper budgets are 16000 tokens for the player and 12000 for the verifier (
 immediately and returns a real (if less considered) move. Both calls are billed and the `usage` in the reply is their
 sum. The fallback is skipped when thinking was already off, and for Fable, which always thinks and rejects a forced
 tool call. If even the fallback returns nothing, the reply is `502 {"error":"no action: thinking budget"}`, which the
-pages word for the visitor and do not retry. The function's timeout is 120s to leave room for the longer calls.
+pages word for the visitor and do not retry.
+
+The same fallback covers a call that is merely slow. The thinking call is given `THINK_DEADLINE_MS` (90s by default)
+and the quick one 20s, which fits inside the function's own 120s. Without that the function itself was killed, and a
+killed function's error response carries none of this handler's CORS headers, so the browser rejected it and the page
+saw only `TypeError: Failed to fetch` with the game over. That was measured on a live Expert game, where turn 7 ran
+the full 120s. Stopping first means the visitor gets a move, or at worst `502 {"error":"no action: thinking
+deadline"}` that the page can word. A network failure reaching Anthropic is reported as `upstream`.
 
 ## Live-play results
 

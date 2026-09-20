@@ -232,7 +232,7 @@
     }
     if (e.status === 504) return `Claude took too long over that one and the turn was stopped.${" Try starting the run again."}`;
     if (e.status === 502) {
-      return /thinking budget/.test(e.error || "")
+      return /thinking (budget|deadline)/.test(e.error || "")
         ? "Claude thought about that position until it ran out of room to answer. Try starting the run again."
         : "The model service had a problem answering that one. Try starting the run again.";
     }
