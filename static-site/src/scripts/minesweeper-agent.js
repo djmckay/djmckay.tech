@@ -42,6 +42,8 @@
 
   let game, running, calls, checks, note, stuck;
   let gameSettings, activeMs, runStart, humanMoved, recorded, refStats; // for the anonymous live-results report
+  let degraded; // turns the proxy answered without thinking, because thinking ran out of room or time
+  let tick; // repaints the elapsed clock while Claude plays
   let flagMode = false; // touch-friendly alternative to right-click
 
   // The notebook lives only in this browser, so one visitor's lessons never reach anyone else's prompts.
@@ -98,11 +100,18 @@
     $("ms-status").textContent = label;
   }
 
+  // Elapsed time counts only while Claude is playing, so it matches the average on the results page.
+  const elapsedMs = () => activeMs + (runStart ? Date.now() - runStart : 0);
+  const clock = (ms) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
   function showCost() {
     const tok = spent.tokens >= 1000 ? `${(spent.tokens / 1000).toFixed(1)}k` : spent.tokens;
     const usd = spent.priced ? `$${spent.usd.toFixed(4)}` : "cost unavailable";
     const verified = settings.verifier || checks ? ` · ${checks} verifier checks` : "";
-    $("ms-cost").textContent = `Est. cost: ${usd} (this game's limit $${level().budgetUsd}) · ${tok} tokens · ${calls} turns${verified}`;
+    const quick = degraded ? ` · ${degraded} quick ${degraded === 1 ? "answer" : "answers"}` : "";
+    $("ms-cost").textContent = `Est. cost: ${usd} (this game's limit $${level().budgetUsd}) · ${tok} tokens · ${calls} turns · ${clock(elapsedMs())}${verified}${quick}`;
   }
 
   const finished = () => game.status === "won" || game.status === "lost";
@@ -350,6 +359,7 @@
       checks,
       secs: Math.max(1, Math.round(activeMs / 1000)),
       costUsd: Number(spent.usd.toFixed(6)),
+      degraded,
       flagged: refStats.flagged,
       approvedWrong: refStats.approvedWrong,
       rejectedFine: refStats.rejectedFine,
@@ -370,6 +380,12 @@
         const proposal = await decide(null);
         if (mine !== epoch) return;
         calls++;
+        if (proposal.degraded) {
+          degraded++;
+          log(proposal.degraded === "deadline"
+            ? "Claude was still thinking after 90 seconds, so it answered quickly instead. This move had less thought behind it."
+            : "Claude used up its thinking room on this position, so it answered quickly instead. This move had less thought behind it.", "verify-warn");
+        }
         addUsage(proposal.usage);
         showCost();
         log(proposal.thought);
@@ -422,6 +438,8 @@
 
   function stop() {
     running = false;
+    clearInterval(tick);
+    tick = null;
     if (runStart) { activeMs += Date.now() - runStart; runStart = null; }
     $("ms-toggle").textContent = "Let Claude play";
     $("ms-toggle").disabled = finished();
@@ -431,6 +449,8 @@
   function reset() {
     epoch++;
     running = false;
+    clearInterval(tick);
+    tick = null;
     calls = 0;
     checks = 0;
     gameSettings = null;
@@ -439,6 +459,7 @@
     humanMoved = false;
     recorded = false;
     refStats = { flagged: 0, approvedWrong: 0, rejectedFine: 0 };
+    degraded = 0;
     note = "none";
     stuck = 0;
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
@@ -490,6 +511,8 @@
     running = true;
     gameSettings ??= { ...settings };
     runStart = Date.now();
+    clearInterval(tick);
+    tick = setInterval(showCost, 1000); // the clock ticks while Claude plays, even mid-turn
     $("ms-toggle").textContent = "Stop";
     renderSettings();
     loop();
