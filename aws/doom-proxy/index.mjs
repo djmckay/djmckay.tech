@@ -105,6 +105,9 @@ const validImage = (image) => typeof image === "string" && image.length <= MAX_I
 const recentActions = (history) =>
   Array.isArray(history) ? history.slice(-6).map((h) => `${String(h?.action).slice(0, 16)}x${Number(h?.repeat) || 1}`).join(", ") : "";
 const inRange = (n, size) => Number.isInteger(n) && n >= 0 && n < size;
+// What the failing turn was, for the log: which game, which model, and how big the board was.
+const size = (input) =>
+  `${typeof input.game === "string" ? input.game.slice(0, 24) : "doom"} ${Array.isArray(input.board) ? `${input.board.length}x${input.board[0]?.length ?? "?"}` : "frame"}`;
 const validMoves = (moves, rows, cols) => (Array.isArray(moves) ? moves : [])
   .filter((m) => MS_ACTIONS.includes(m?.action) && inRange(m.row, rows) && inRange(m.col, cols))
   .map(({ action, row, col }) => ({ action, row, col }));
@@ -115,6 +118,19 @@ const adaptiveExtras = (model, { effort }) =>
 // A forced tool call tells the model to answer immediately, which starves adaptive thinking (measured: effort had no
 // effect on output tokens). With thinking on, leave tool_choice on auto and let the prompt call the tool.
 const adaptiveToolChoice = (model) => (thinksAdaptively(model) ? { type: "auto" } : undefined);
+// The same request with thinking turned off and the tool forced, so it answers immediately. Used when thinking spent
+// the whole token budget and left no move. null when there is nothing to turn off, or when the model cannot: Fable
+// always thinks and rejects a forced tool call.
+function withoutThinking(body) {
+  if (body.thinking?.type !== "adaptive" || isFable(body.model)) return null;
+  const { output_config, ...rest } = body;
+  return {
+    ...rest,
+    thinking: { type: "disabled" },
+    tool_choice: { type: "tool", name: body.tools[0].name },
+    max_tokens: Math.min(body.max_tokens, 2000),
+  };
+}
 
 // Each game owns its prompt, tool and validation so the client can never choose them.
 const GAMES = {
@@ -172,7 +188,9 @@ Always call the act tool. Keep "thought" to one short sentence.`,
 
   minesweeper: {
     choose: msChoice,
-    maxTokens: 6000, // thinking tokens count toward this; a cut-off answer would return no tool call
+    // Thinking tokens count toward this. At 6000 a hard mid-game board regularly thought past the ceiling and
+    // returned no tool call at all; the handler falls back to a no-thinking answer if even this is not enough.
+    maxTokens: 16000,
     extras: adaptiveExtras,
     toolChoice: adaptiveToolChoice,
     system: `${MS_RULES}
@@ -230,7 +248,7 @@ Think the position through before you answer. Then reply only by calling the pla
   // A second Claude reviews the player's proposed moves before the page applies them.
   "minesweeper-verify": {
     choose: msChoice,
-    maxTokens: 6000,
+    maxTokens: 12000, // as above: the verifier thinks too, and a cut-off answer is no verdict
     extras: adaptiveExtras,
     toolChoice: adaptiveToolChoice,
     system: `${MS_RULES}
@@ -555,23 +573,26 @@ export const handler = async (event) => {
   try { apiKey = await getApiKey(); }
   catch (e) { console.error("secret fetch failed", e.name); return reply(500, { error: "config" }); }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const requestBody = {
+    model,
+    ...(game.extras?.(model, choice) ?? {}),
+    max_tokens: typeof game.maxTokens === "function" ? game.maxTokens(model, choice) : game.maxTokens,
+    system: typeof game.system === "function" ? game.system(input) : game.system,
+    tools: [game.tool],
+    tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
+    messages: [{ role: "user", content }],
+  };
+  const ask = (body) => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      ...(game.extras?.(model, choice) ?? {}),
-      max_tokens: typeof game.maxTokens === "function" ? game.maxTokens(model, choice) : game.maxTokens,
-      system: typeof game.system === "function" ? game.system(input) : game.system,
-      tools: [game.tool],
-      tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
-      messages: [{ role: "user", content }],
-    }),
+    body: JSON.stringify(body),
   });
+
+  const res = await ask(requestBody);
   if (!res.ok) {
     const text = (await res.text()).slice(0, 400);
     console.error("upstream error", res.status, text);
@@ -583,15 +604,36 @@ export const handler = async (event) => {
     return reply(502, { error: "upstream", status: res.status });
   }
 
-  const data = await res.json();
-  const call = data.content?.find((b) => b.type === "tool_use")?.input;
-  const out = call && game.result(call, input);
-  if (!out) {
-    console.error("no usable action", data.stop_reason, JSON.stringify(call)?.slice(0, 300));
-    return reply(502, { error: "no action" });
+  let data = await res.json();
+  let inputTokens = data.usage?.input_tokens ?? 0;
+  let outputTokens = data.usage?.output_tokens ?? 0;
+  const readMove = () => {
+    const call = data.content?.find((b) => b.type === "tool_use")?.input;
+    return { call, out: call && game.result(call, input) };
+  };
+  let { call, out } = readMove();
+
+  // Thinking counts toward max_tokens, so a hard board can spend the whole budget and stop before calling the tool.
+  // Ask once more with thinking off (it answers immediately) rather than failing the turn. Both calls are billed.
+  if (!out && data.stop_reason === "max_tokens") {
+    const quick = withoutThinking(requestBody);
+    if (quick) {
+      console.warn("thinking used the whole budget, asking again without it", size(input), model, requestBody.max_tokens);
+      const retry = await ask(quick);
+      if (retry.ok) {
+        data = await retry.json();
+        inputTokens += data.usage?.input_tokens ?? 0;
+        outputTokens += data.usage?.output_tokens ?? 0;
+        ({ call, out } = readMove());
+      } else {
+        console.error("fallback call failed", retry.status, (await retry.text()).slice(0, 200));
+      }
+    }
   }
-  const inputTokens = data.usage?.input_tokens ?? 0;
-  const outputTokens = data.usage?.output_tokens ?? 0;
+  if (!out) {
+    console.error("no usable action", size(input), model, data.stop_reason, JSON.stringify(call)?.slice(0, 300));
+    return reply(502, { error: data.stop_reason === "max_tokens" ? "no action: thinking budget" : "no action" });
+  }
   const price = PRICES[model];
   const costUsd = price ? (inputTokens * price.in + outputTokens * price.out) / 1e6 : null;
   if (costUsd) dayCost += costUsd;

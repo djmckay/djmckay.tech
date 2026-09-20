@@ -195,6 +195,11 @@
         ? "Today's budget for this demo is used up. Please try again tomorrow."
         : "Rate limited, try again in a minute.";
     }
+    if (e.status === 502) {
+      return /thinking budget/.test(e.error || "")
+        ? "Claude thought about that position until it ran out of room to answer. Try a lower thinking effort, or an easier level."
+        : "The model service had a problem answering that one. Try a lower thinking effort, or an easier level.";
+    }
     return `Error: ${e.message}`;
   }
 
@@ -204,7 +209,10 @@
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
-      if (res.status < 500 || attempt >= 3) throw await proxyError(res);
+      const err = await proxyError(res);
+      // "no action" means Claude answered but not with a move, and the proxy has already tried again without
+      // thinking. Asking a third time costs another full turn of tokens and tends to fail the same way.
+      if (res.status < 500 || attempt >= 3 || /^no action/.test(err.error || "")) throw err;
       await sleep(800 * attempt);
     }
   }
