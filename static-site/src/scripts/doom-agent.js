@@ -13,13 +13,23 @@
   const maxSteps = Math.floor(localLimit("steps", 500, cfg.maxSteps));
   const runBudget = () => localLimit("budget", 20, LOCAL && settings.model === "fable" ? 5 : cfg.budgetUsd);
   const fableEffort = ["low", "medium", "high"].includes(query.get("effort")) ? query.get("effort") : "low";
+  // What the page does for Claude besides pressing the key it asked for. Measured from saved games next to the first
+  // level's door: Claude alone got through it 3 of 6 times at best (1 of 4 with its own escape key and the automap),
+  // the use tap 12 of 12. It works the title menus itself (2 of 2 games, five steps each) once it has an escape key,
+  // and the automap did not change what it explored in 60-step games, so only the door tap is on. On localhost
+  // ?automenu=1 ?autouse=0 ?map=1 switch them for comparisons.
+  const flag = (name, fallback) => (LOCAL && query.has(name) ? query.get(name) === "1" : fallback);
+  const AUTO_MENU = flag("automenu", false); // press Enter through the title menus before the first turn
+  const AUTO_USE = flag("autouse", true); // tap use after every forward move, so walking into a door opens it
+  const SEND_MAP = flag("map", false); // also send Doom's automap (Tab) each turn
 
   // js-dos v8 key codes (GLFW numbering).
   const KEYS = {
     forward: [265], back: [264], left: [263], right: [262],
     strafe_left: [44], strafe_right: [46], // , and .
-    fire: [341], use: [32], enter: [257], wait: [],
+    fire: [341], use: [32], enter: [257], escape: [256], wait: [],
   };
+  const TAB = 258; // toggles Doom's automap
 
   let ci = null;
   let running = false;
@@ -43,11 +53,12 @@
   }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage unavailable */ } };
 
-  // Measured against the live proxy with the navigation prompt (Sonnet: about 20 runs of 20-60 steps; Haiku: one
-  // 30-step run, so its hint claims little). Cost includes the notes Claude writes each turn.
+  // Measured against the live proxy with the navigation prompt (Sonnet: about 40 runs of 20-60 steps; Haiku: one
+  // 30-step run, so its hint claims little). Cost includes the notes Claude writes each turn. The first five or so
+  // steps of a run go on the title menus, which Claude works itself.
   const HINTS = {
     haiku: "Haiku: about 1.4 seconds and 0.23 cents per step, less than half the cost of Sonnet. In a short test run it explored quickly; it has been less careful than Sonnet in earlier tests.",
-    sonnet: "Sonnet: about 2 seconds and 0.5 cents per step, so a full 150-step run costs about 75 cents. In test runs it got through closed doors, wrote itself short notes and mostly turned away from walls instead of pushing into them.",
+    sonnet: "Sonnet: about 2 seconds and 0.5 cents per step, so a full 150-step run costs about 75 cents. In test runs it started the game from the title menus in five steps, wrote itself short notes and mostly turned away from walls instead of pushing into them.",
     fable: "Fable 5.1: about 6 seconds and 2.6 cents per step, so 100 steps cost about $2.60. In two test runs it followed a corridor bend and reached the fight beyond the first door once; the other time it wandered the start area.",
   };
   function renderSettings() {
@@ -124,14 +135,63 @@
     return c;
   }
 
+  const jpeg = (c) => c.toDataURL("image/jpeg", 0.7).split(",")[1];
+  // The game view. If the automap was left open (a lost keypress), close it first: Claude must never mistake it for the game.
   async function grabFrame() {
-    const c = await screenshotCanvas();
-    return { image: c.toDataURL("image/jpeg", 0.7).split(",")[1], sig: signature(c) };
+    let c = await screenshotCanvas();
+    if (looksLikeMap(c)) {
+      await tap(TAB);
+      await sleep(200);
+      c = await screenshotCanvas();
+    }
+    return { image: jpeg(c), sig: signature(c) };
   }
 
-  // A closed door looks like a wall and Claude often walks away from it, so after every forward move the page taps the
-  // use key: walking into a door opens it. If the picture changes the door is sliding up, so give it time to finish.
-  const AUTO_OPEN = true;
+  // Doom's automap is mostly black; the game view never is (the darkest room in the shareware level is under 10%).
+  function looksLikeMap(c) {
+    const px = c.getContext("2d").getImageData(0, 0, c.width, Math.round(c.height * 0.84)).data; // above the status bar
+    let dark = 0;
+    for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] < 30) dark++;
+    return dark / (px.length / 4) > 0.4;
+  }
+  async function tap(code, ms = 100) {
+    ci.sendKeyEvent(code, true);
+    await sleep(ms);
+    ci.sendKeyEvent(code, false);
+  }
+  // Opens the automap, photographs it and closes it again. Returns null if the map did not appear (menus, title screen).
+  // Doom opens the map showing the whole level, too small to read, so at the first map of a run the page zooms it in.
+  // Doom keeps the zoom for as long as the level lasts, so the page first zooms all the way out (it stops at the
+  // whole-level view), which makes the result the same whatever an earlier run left behind.
+  const ZOOM_IN = 61; // the = key; Doom zooms about 2% per tic while it is held
+  const ZOOM_OUT = 45; // the - key
+  const MAP_ZOOM_OUT_MS = 4500; // enough to undo any earlier zoom
+  const MAP_ZOOM_MS = 2000; // about 4x: the map area is only 168 pixels tall, so more zoom hides the next room
+  let mapZoomed = false;
+  async function grabMap() {
+    await tap(TAB, 60);
+    await sleep(120);
+    let c = await screenshotCanvas();
+    if (!looksLikeMap(c)) { await sleep(200); c = await screenshotCanvas(); }
+    let map = null;
+    if (looksLikeMap(c)) {
+      if (!mapZoomed) {
+        await tap(ZOOM_OUT, MAP_ZOOM_OUT_MS);
+        await tap(ZOOM_IN, MAP_ZOOM_MS);
+        await sleep(80);
+        mapZoomed = true;
+        c = await screenshotCanvas();
+      }
+      map = jpeg(c);
+    }
+    await tap(TAB, 60);
+    await sleep(100);
+    if (looksLikeMap(await screenshotCanvas())) await tap(TAB, 60); // a lost keypress would leave the map open
+    return map;
+  }
+
+  // With AUTO_USE on, after every forward move the page taps the use key so that walking into a door opens it (Claude
+  // often took closed doors for walls). If the picture changes the door is sliding up, so give it time to finish.
   const DOOR_SLIDE_MS = 800; // a door takes about a second of game time to open
   async function openDoor() {
     const before = signature(await screenshotCanvas());
@@ -149,7 +209,7 @@
     codesDown(codes);
     await sleep(ticks * 100);
     codesUp(codes);
-    if (AUTO_OPEN && action === "forward") await openDoor();
+    if (AUTO_USE && action === "forward") await openDoor();
   }
 
   // The proxy answers 402 {error:"budget"} when the API account is out of budget, and 429 for our own limits.
@@ -174,8 +234,8 @@
   }
 
   // Retry transient server errors (5xx) so one bad response doesn't end the run.
-  async function decide(image) {
-    const body = JSON.stringify({ game: "doom-nav", image, history, stats: `Step ${steps}.`, blocked, stall, fired: fireStreak, usedNothing, notes, config: { model: settings.model, effort: settings.model === "fable" ? fableEffort : "off" } });
+  async function decide(image, map) {
+    const body = JSON.stringify({ game: "doom-nav", image, map: map || undefined, autoUse: AUTO_USE, autoMenu: AUTO_MENU, history, stats: `Step ${steps}.`, blocked, stall, fired: fireStreak, usedNothing, notes, config: { model: settings.model, effort: settings.model === "fable" ? fableEffort : "off" } });
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
       if (res.ok) return res.json();
@@ -192,7 +252,7 @@
   let readyAt = 0;
   let inLevel = false;
   async function startLevel() {
-    if (inLevel) return;
+    if (inLevel || !AUTO_MENU) return;
     log("Starting the level: the page presses Enter through the title menus.", "note");
     await sleep(Math.max(0, readyAt + DOOM_LOAD_MS - Date.now()));
     for (let i = 0; i < MENU_TAPS && running; i++) {
@@ -211,9 +271,10 @@
       if (spent.usd >= runBudget()) { budgetStop = true; break; }
       try {
         const { image, sig } = await grabFrame();
+        const map = SEND_MAP ? await grabMap() : null;
         trackProgress(sig);
         ci.pause?.(); // turn-based: game freezes while the model thinks
-        const { thought, action, repeat, usage, notes: next } = await decide(image);
+        const { thought, action, repeat, usage, notes: next } = await decide(image, map);
         ci.resume?.();
         prevSig = sig;
         lastAction = action;
@@ -261,6 +322,7 @@
     usedNothing = false;
     notes = "";
     fireStreak = 0;
+    mapZoomed = false;
     history.length = 0; // "Recent actions" belong to this run, not the previous one
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     showCost();
