@@ -49,6 +49,11 @@ const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 const MS_EFFORT = EFFORTS.includes(process.env.MINESWEEPER_EFFORT) ? process.env.MINESWEEPER_EFFORT : "high";
 const PER_IP_PER_MIN = Number(process.env.PER_IP_PER_MIN || 30);
 const MAX_IMAGE_B64 = 200_000; // ~150KB JPEG
+// How long one thinking call may run. The function itself is killed at 120s, and a killed function returns an error
+// the browser rejects for want of CORS headers, so the page only sees "Failed to fetch" and the game ends. Stopping
+// first leaves room to answer without thinking (about 15s) and to reply properly whatever happens.
+const THINK_DEADLINE_MS = Number(process.env.THINK_DEADLINE_MS || 90_000);
+const QUICK_DEADLINE_MS = 20_000; // the no-thinking answer; measured at a few seconds, and 90 + 20 still fits in 120
 
 const ACTIONS = ["forward", "back", "left", "right", "strafe_left", "strafe_right", "fire", "use", "enter", "wait"];
 const NAV_ACTIONS = [...ACTIONS, "escape"]; // doom-nav also lets Claude leave a menu (the original doom page has no key for it)
@@ -582,7 +587,7 @@ export const handler = async (event) => {
     tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
     messages: [{ role: "user", content }],
   };
-  const ask = (body) => fetch("https://api.anthropic.com/v1/messages", {
+  const ask = (body, deadlineMs) => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": apiKey,
@@ -590,10 +595,19 @@ export const handler = async (event) => {
       "content-type": "application/json",
     },
     body: JSON.stringify(body),
+    ...(deadlineMs ? { signal: AbortSignal.timeout(deadlineMs) } : {}),
   });
 
-  const res = await ask(requestBody);
-  if (!res.ok) {
+  let res;
+  let ranLong = false; // the thinking call passed its deadline and was dropped
+  try {
+    res = await ask(requestBody, THINK_DEADLINE_MS);
+  } catch (e) {
+    if (e?.name !== "TimeoutError") { console.error("upstream unreachable", e?.name); return reply(502, { error: "upstream", status: 0 }); }
+    console.warn("thinking passed its deadline, answering without it", size(input), model, THINK_DEADLINE_MS);
+    ranLong = true;
+  }
+  if (res && !res.ok) {
     const text = (await res.text()).slice(0, 400);
     console.error("upstream error", res.status, text);
     if (res.status === 400 && BUDGET_ERROR.test(text)) {
@@ -604,7 +618,7 @@ export const handler = async (event) => {
     return reply(502, { error: "upstream", status: res.status });
   }
 
-  let data = await res.json();
+  let data = res ? await res.json() : { stop_reason: "max_tokens", content: [] }; // a dropped call counts as out of room
   let inputTokens = data.usage?.input_tokens ?? 0;
   let outputTokens = data.usage?.output_tokens ?? 0;
   const readMove = () => {
@@ -613,26 +627,31 @@ export const handler = async (event) => {
   };
   let { call, out } = readMove();
 
-  // Thinking counts toward max_tokens, so a hard board can spend the whole budget and stop before calling the tool.
-  // Ask once more with thinking off (it answers immediately) rather than failing the turn. Both calls are billed.
+  // Thinking either spent the whole token budget or passed its deadline, and in both cases stopped before calling the
+  // tool. Ask once more with thinking off, which answers in a few seconds, rather than failing the turn. Both calls
+  // are billed. This one gets a deadline of its own so that a hang here cannot run the function out of time either.
   if (!out && data.stop_reason === "max_tokens") {
     const quick = withoutThinking(requestBody);
     if (quick) {
-      console.warn("thinking used the whole budget, asking again without it", size(input), model, requestBody.max_tokens);
-      const retry = await ask(quick);
-      if (retry.ok) {
-        data = await retry.json();
-        inputTokens += data.usage?.input_tokens ?? 0;
-        outputTokens += data.usage?.output_tokens ?? 0;
-        ({ call, out } = readMove());
-      } else {
-        console.error("fallback call failed", retry.status, (await retry.text()).slice(0, 200));
+      if (!ranLong) console.warn("thinking used the whole budget, asking again without it", size(input), model, requestBody.max_tokens);
+      try {
+        const retry = await ask(quick, QUICK_DEADLINE_MS);
+        if (retry.ok) {
+          data = await retry.json();
+          inputTokens += data.usage?.input_tokens ?? 0;
+          outputTokens += data.usage?.output_tokens ?? 0;
+          ({ call, out } = readMove());
+        } else {
+          console.error("fallback call failed", retry.status, (await retry.text()).slice(0, 200));
+        }
+      } catch (e) {
+        console.error("fallback call did not answer", e?.name);
       }
     }
   }
   if (!out) {
     console.error("no usable action", size(input), model, data.stop_reason, JSON.stringify(call)?.slice(0, 300));
-    return reply(502, { error: data.stop_reason === "max_tokens" ? "no action: thinking budget" : "no action" });
+    return reply(502, { error: ranLong ? "no action: thinking deadline" : data.stop_reason === "max_tokens" ? "no action: thinking budget" : "no action" });
   }
   const price = PRICES[model];
   const costUsd = price ? (inputTokens * price.in + outputTokens * price.out) / 1e6 : null;

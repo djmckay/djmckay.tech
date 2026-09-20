@@ -197,7 +197,7 @@
     }
     if (e.status === 504) return `Claude took too long over that one and the turn was stopped.${" Try a lower thinking effort, or an easier level."}`;
     if (e.status === 502) {
-      return /thinking budget/.test(e.error || "")
+      return /thinking (budget|deadline)/.test(e.error || "")
         ? "Claude thought about that position until it ran out of room to answer. Try a lower thinking effort, or an easier level."
         : "The model service had a problem answering that one. Try a lower thinking effort, or an easier level.";
     }
