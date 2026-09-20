@@ -180,8 +180,8 @@
   // The proxy answers 402 {error:"budget"} when the API account is out of budget, and 429 for our own limits.
   async function proxyError(res) {
     const err = new Error(`proxy ${res.status}`);
-    err.status = res.status;
     try { Object.assign(err, await res.json()); } catch { /* body wasn't JSON */ }
+    err.status = res.status; // last: an "upstream" body carries Anthropic's own status, and ours is what we classify on
     return err;
   }
 
@@ -195,6 +195,7 @@
         ? "Today's budget for this demo is used up. Please try again tomorrow."
         : "Rate limited, try again in a minute.";
     }
+    if (e.status === 504) return `Claude took too long over that one and the turn was stopped.${" Try a lower thinking effort, or an easier level."}`;
     if (e.status === 502) {
       return /thinking budget/.test(e.error || "")
         ? "Claude thought about that position until it ran out of room to answer. Try a lower thinking effort, or an easier level."
@@ -203,16 +204,28 @@
     return `Error: ${e.message}`;
   }
 
-  // Retry transient server errors (5xx) so one bad response doesn't end the game.
+  // The function gives up at 120s and answers 502, so this is the backstop for when even that answer never arrives.
+  // Without it a hung turn would be retried into several minutes of waiting.
+  const REQUEST_TIMEOUT_MS = 130_000;
+  const requestTimeout = () => (typeof AbortSignal?.timeout === "function" ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined);
+
+  // One attempt, bounded; retried only for errors the proxy marked transient, so one hiccup doesn't end the game.
   async function post(payload) {
     const body = JSON.stringify(payload);
     for (let attempt = 1; ; attempt++) {
-      const res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
+      let res;
+      try {
+        res = await fetch(cfg.proxyUrl, { method: "POST", headers: { "content-type": "application/json" }, body, signal: requestTimeout() });
+      } catch (e) {
+        if (e?.name !== "TimeoutError") throw e; // a real network failure: let it say so
+        throw Object.assign(new Error("request timed out"), { status: 504 });
+      }
       if (res.ok) return res.json();
       const err = await proxyError(res);
-      // "no action" means Claude answered but not with a move, and the proxy has already tried again without
-      // thinking. Asking a third time costs another full turn of tokens and tends to fail the same way.
-      if (res.status < 500 || attempt >= 3 || /^no action/.test(err.error || "")) throw err;
+      // Only ask again for what the proxy itself called a transient upstream hiccup. Its other 5xx are not worth a
+      // second turn of thinking: "no action" means it already retried without thinking, and a 502 with no message of
+      // ours is the function giving up on a turn that ran too long, which a retry would only repeat.
+      if (attempt >= 3 || err.error !== "upstream") throw err;
       await sleep(800 * attempt);
     }
   }
