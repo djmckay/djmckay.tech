@@ -24,16 +24,24 @@ Sonnet, unknown models and efforts fall back to the defaults (`MODEL`, `off`), a
 exactly as before.
 
 `doom-nav` takes the same requests and `config`, and adds guidance on what doors, doorways, stairs and switches look
-like, how to leave a room, that corpses and gibs are scenery, and to press `use` to restart after dying. Its tool has a
-`notes` field instead of `thought`: Claude's own memory (at most 240 characters), returned as both `notes` and
-`thought` and sent back by the page in `notes` on the next turn, because the model otherwise forgets every earlier
-screenshot. The page also sends four progress signals: `blocked` (the last move changed nothing), `stall` (turns
-without progress), `fired` (turns in a row spent firing) and `usedNothing` (the last `use` changed nothing). Only
-booleans and integers are taken from them, and the warning wording is ours. `notes` is treated like any other client
-text: printable ASCII, 300 characters, placed on a labelled line of the user message, never in the system prompt. The
-prompt tells Claude that the page taps `use` after every forward move, which the page does, so a closed door opens
-when Claude walks into it. It costs about 40% more per step than `doom` (roughly 0.5 cents on Sonnet 5, 0.23 cents on
-Haiku 4.5) because of the longer prompt and the notes.
+like, how to leave a room, that corpses and gibs are scenery, how to work the title menus (New Game is the first
+item, at most five enters, `escape` leaves a menu) and to press `use` to restart after dying. Its tool has a `notes`
+field instead of `thought`: Claude's own memory (at most 240 characters), returned as both `notes` and `thought` and
+sent back by the page in `notes` on the next turn, because the model otherwise forgets every earlier screenshot. Its
+action list adds `escape`. The page says which helpers it runs with two booleans, `autoUse` (it taps use after every
+forward move, so a door opens when Claude walks into it) and `autoMenu` (it presses Enter through the title menus),
+and the prompt is worded to match; it may also send `map`, a JPEG of Doom's automap, which is then described and
+placed after the game view. The page also sends four progress signals: `blocked` (the last move changed nothing),
+`stall` (turns without progress), `fired` (turns in a row spent firing) and `usedNothing` (the last `use` changed
+nothing). Only booleans, integers and images are taken from the client, and the wording is ours. `notes` is treated
+like any other client text: printable ASCII, 300 characters, placed on a labelled line of the user message, never in
+the system prompt. It costs about 40% more per step than `doom` (roughly 0.5 cents on Sonnet 5, 0.23 cents on Haiku
+4.5) because of the longer prompt and the notes, and the automap adds about 20% more.
+
+A page served from `http://localhost` (an origin that is in `AllowedOrigin` only while testing) may also ask
+`doom-nav` for `config.model: "fable"` (Claude Fable 5.1, about 2.6 cents a step at low effort) with
+`config.effort: "low"|"medium"|"high"`; every other origin, game or spelling gets the usual default. Fable always
+thinks and rejects a forced tool call, so it gets automatic tool choice and a 5000-token budget.
 
 ## Live-play results
 

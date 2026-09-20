@@ -41,6 +41,7 @@ const PRICES = {
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
   "claude-haiku-4-5": { in: 1, out: 5 },
   "claude-sonnet-5": { in: 2, out: 10 },
+  "claude-fable-5-1": { in: 10, out: 50 },
 };
 // Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
 const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
@@ -50,6 +51,7 @@ const PER_IP_PER_MIN = Number(process.env.PER_IP_PER_MIN || 30);
 const MAX_IMAGE_B64 = 200_000; // ~150KB JPEG
 
 const ACTIONS = ["forward", "back", "left", "right", "strafe_left", "strafe_right", "fire", "use", "enter", "wait"];
+const NAV_ACTIONS = [...ACTIONS, "escape"]; // doom-nav also lets Claude leave a menu (the original doom page has no key for it)
 const MS_ACTIONS = ["reveal", "flag"];
 const MS_VERDICTS = ["approve", "unproven", "wrong"];
 const MS_MAX_ROWS = 16;
@@ -61,6 +63,12 @@ const MS_DEFAULT_MOVES = 5;
 // high/xhigh/max are not offered: at high, 2 of 3 mid-game turns hit the 6000-token / 60 s budget in testing.
 const PUBLIC_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
 const MS_PUBLIC_EFFORTS = ["low", "medium"];
+// Not offered to visitors: Fable costs several times more per call than Sonnet, so only a page served from localhost
+// (an origin that is in ALLOWED_ORIGIN only while testing) may ask for it, and only for the doom-nav game.
+const DEV_MODELS = { fable: "claude-fable-5-1" };
+const FABLE_EFFORTS = ["low", "medium", "high"];
+const isFable = (m) => /^claude-fable-5/.test(m);
+const isDevOrigin = () => /^http:\/\/localhost(:\d+)?$/.test(reqOrigin);
 // Picks a public preset from the request: model by name, effort from an allowlist, anything else falls back.
 function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
   const c = input.config && typeof input.config === "object" ? input.config : {};
@@ -321,25 +329,46 @@ State the pattern or rule. Do not mention coordinates from this particular board
 
 // Doom with a description of what doors, doorways and stairs look like, rules for leaving rooms and for scenery that is
 // not an enemy, and a "notes" field the page hands back next turn (the model otherwise forgets every earlier screen).
-// The page also taps the use key after every forward move, so this prompt says walking into a door opens it. The
-// original "doom" game above is kept unchanged for pages that are still cached.
-const NAV_SYSTEM = `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, kill monsters, and explore the level toward its exit by leaving each room through a door, stairway or corridor you have not used yet.
-Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use presses switches and opens doors, enter confirms menu items (use it on title and menu screens), wait does nothing. The game also taps use for you after every forward move, so walking straight into a door opens it.
+// The page says which helpers it runs (autoMenu: it presses Enter through the title menus; autoUse: it taps use after
+// every forward move) and whether it also sends Doom's automap, and the prompt is worded to match. Those are booleans
+// from the client; every sentence here is ours. The original "doom" game above is kept unchanged for cached pages.
+const navSystem = ({ autoUse, autoMenu, hasMap }) => `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, kill monsters, and explore the level toward its exit by leaving each room through a door, stairway or corridor you have not used yet.
+Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use presses switches and opens doors, enter confirms menu items, escape leaves a menu or message, wait does nothing.${
+  autoMenu ? "" : `
+Title and menus: the title screen, the ordering and help screens, and the demo games that play between them are not you playing, and the demo shows a status bar and a moving player too, so do not trust the picture until you have chosen a skill level. To start, press enter once per turn, whatever the screen shows, until then: on the title, help or demo screens enter opens the menu; on the menu it picks New Game (the first item); on the episode list (Knee-Deep in the Dead and two more) it picks the first; on the skill list (five lines from I'm too young to die to Nightmare!) it picks Hurt me plenty and the game begins. That is at most 5 enters. The picture then melts from the skill list into the level over the next two or three turns (the game only runs while a key is held, so press wait with repeat 8 until the level is fully drawn); a red or smeared picture there is the melt, not damage. Until the skill list is done press nothing but enter: not forward or back (they move the cursor, and from the top it lands on Quit Game) and not escape (it backs out of the list you are in). While you play, escape closes a menu or message that appears; in the game itself escape opens the menu, so press it only to leave one. If a yes/no question appears, use answers no.`}${
+  autoUse ? " The game also taps use for you after every forward move, so walking straight into a door opens it." : ""}
 Combat: when an enemy is visible, turn until it is centered in the crosshair, then fire in bursts (repeat 3-6). Keep moving to avoid damage, and walk over health and ammo pickups. Enemies move, flinch or shoot back; a corpse, gibs or a pool of blood is scenery, so if a target does not react to 2-3 bursts, stop firing and move on.
 Ways onward:
-- Door: a flat slab set into a wall, usually plainer or smoother than the walls around it, often with a frame or a dark seam at its edge. A closed door looks like a wall, so at the end of a corridor walk into any plain slab, facing it squarely (it should fill the middle of your view): the game taps use for you after every forward move and the door slides up in about a second, then walk through. If nothing opens once you are pressed against it, it is only a wall.
+- Door: a flat slab set into a wall, usually plainer or smoother than the walls around it, often with a frame or a dark seam at its edge. A closed door looks like a wall, so ${
+  autoUse
+    ? "at the end of a corridor walk into any plain slab, facing it squarely (it should fill the middle of your view): the game taps use for you after every forward move and the door slides up in about a second, then walk through. If nothing opens once you are pressed against it, it is only a wall."
+    : "when a corridor or passage ends at a plain slab, or a wall fills your view with no opening beside it, face it squarely (it should fill the middle of your view) and press use once with repeat 8: the game is frozen between your turns, so a door only slides up while a key is held, and after a full-length use the next picture shows it half open with the room beyond. Then walk through. If the picture is unchanged after that, it is only a wall: do not use it again. In this game doors are slabs of grey metal, ribbed or riveted, with a thin dark frame, set into brown, tan or striped walls, and they look like part of the wall until they open."}
 - Doorway or corridor: a dark gap or opening in a wall. Walk into it.
 - Stairs: bands of steps going up or down, or a floor that is higher or lower than yours (from the top, stairs down look like a dark gap in the floor with stripes below). Walk straight at them and keep going; you climb steps automatically and do not need use. A lift is a platform you step onto.
-- Switch: a small wall panel; use it when you are next to it. A switch or door marked EXIT ends the level.
+- Switch: a small wall panel; use it when you are next to it. A switch or door marked EXIT ends the level.${
+  hasMap ? `
+Automap: each turn you also get the game's map, drawn from above with north at the top. The arrow is you and points the way you face. Red lines are walls you have seen, yellow and brown lines are doors and changes of floor height, and nothing is drawn where you have not looked yet. A gap in the lines around you is an opening you have not gone through, and a corridor you have not walked shows as two lines with nothing between them. A yellow line drawn across a passage is a closed door${
+    autoUse ? ": walk into it" : ": walk up to it, face it squarely and press use with repeat 8, and if a yellow line is right in front of the arrow you are at a door now"}. Use the map to pick the nearest unexplored opening and to tell whether you are moving; it does not show monsters.` : ""}
 Exploring: leave each room by a door, stairway or opening you have not used yet, and do not wander around a room you have already seen. When the way is clear, walk with a long repeat (7-8) to cover ground, and use short ones near walls, doors and enemies. A corridor that ends at a wall usually bends: turn toward the side where the floor or walls continue (repeat 4-6 for a bend, 7-8 for a sharp corner) instead of turning around. If nothing is open, back up and head a different way, and never turn a little left then a little right in the same spot. Blue floors and water are harmless; green slime and lava hurt, so cross them only if you must.
 Notes: you cannot remember earlier screens, so every turn write "notes" (under 200 characters): where you are, the exits, doors and stairs you have seen and whether each is tried, and your next goal. Your notes are shown back to you next turn. They are memory, not proof: check them against the new screenshot and change plan when they no longer fit.
 If you die (the screen turns red), press use to restart the level.
 The message may warn that you are blocked, have made no progress, keep firing or that a use changed nothing. When it does, change what you are doing.
 Always call the act tool.`;
+const navFlags = (input) => ({ autoUse: input.autoUse === true, autoMenu: input.autoMenu === true, hasMap: validImage(input.map) });
+// Fable always thinks (there is no thinking field to send) and rejects a forced tool call with a 400, so it gets
+// automatic tool choice, an effort level (default low) and room to think before it calls the tool.
+const navChoice = (input) => {
+  const c = input.config && typeof input.config === "object" ? input.config : {};
+  if (isDevOrigin() && c.model === "fable") return { model: DEV_MODELS.fable, effort: FABLE_EFFORTS.includes(c.effort) ? c.effort : "low" };
+  return doomChoice(input);
+};
 GAMES["doom-nav"] = {
   ...GAMES.doom,
-  maxTokens: (model, choice) => GAMES.doom.maxTokens(model, choice) + 100,
-  system: NAV_SYSTEM,
+  choose: navChoice,
+  maxTokens: (model, choice) => (isFable(model) ? 5000 : GAMES.doom.maxTokens(model, choice) + 100),
+  extras: (model, choice) => (isFable(model) ? { output_config: { effort: choice.effort } } : GAMES.doom.extras(model, choice)),
+  toolChoice: (model, choice) => (isFable(model) ? { type: "auto" } : GAMES.doom.toolChoice(model, choice)),
+  system: (input) => navSystem(navFlags(input)),
   tool: {
     name: "act",
     description: "Choose the next action in Doom.",
@@ -347,7 +376,7 @@ GAMES["doom-nav"] = {
       type: "object",
       properties: {
         notes: { type: "string", maxLength: 240, description: "Your memory for the next turn: where you are, exits seen (tried or not), next goal." },
-        action: { type: "string", enum: ACTIONS },
+        action: { type: "string", enum: NAV_ACTIONS },
         repeat: { type: "integer", minimum: 1, maximum: 8, description: "Duration in 100ms ticks" },
       },
       required: ["notes", "action"],
@@ -355,13 +384,17 @@ GAMES["doom-nav"] = {
   },
   // Only the values of blocked/stall/notes come from the client; the wording around them is ours, and notes are
   // printable ASCII, length-capped and labelled, like any other client text that reaches a prompt.
-  content({ image, stats, history, blocked, stall, fired, usedNothing, notes }) {
+  content(input) {
+    const { image, map, stats, history, blocked, stall, fired, usedNothing, notes } = input;
     if (!validImage(image)) return null;
+    const { autoUse, hasMap } = navFlags(input);
     const steps = Number.isInteger(stall) ? Math.min(Math.max(stall, 0), 50) : 0;
     const shots = Number.isInteger(fired) ? Math.min(Math.max(fired, 0), 50) : 0;
     const warnings = [];
     if (blocked === true) {
-      warnings.push("Your last move did not change the view: you are pressed against something solid, and a door would have opened by now. Turn toward the side where the corridor or floor continues (repeat 4-8) or back up, then go another way.");
+      warnings.push(`Your last move did not change the view: you are pressed against something solid${
+        autoUse ? ", and a door would have opened by now. Turn"
+          : `. If it could be a door${hasMap ? " (on the map, a yellow line right in front of the arrow)" : ""} and you have not tried use here, face it squarely and press use once with repeat 8; otherwise turn`} toward the side where the corridor or floor continues (repeat 4-8) or back up, then go another way.`);
     }
     if (usedNothing === true) {
       warnings.push("Your last use changed nothing, so that is only a wall (or a locked door): do not use it again. Turn toward the side where the corridor or floor continues (repeat 4-8) or back up, then go another way.");
@@ -372,8 +405,9 @@ GAMES["doom-nav"] = {
     if (shots >= 4) {
       warnings.push(`You have fired ${shots} turns in a row. Real enemies react by moving, flinching or attacking. If nothing is dying or hurting you, your target is probably scenery (a corpse, gibs or a light): stop firing and go explore.`);
     }
+    const jpeg = (data) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } });
     return [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+      ...(hasMap ? [{ type: "text", text: "What you see:" }, jpeg(image), { type: "text", text: "The automap:" }, jpeg(map)] : [jpeg(image)]),
       {
         type: "text",
         text: `Recent actions: ${recentActions(history) || "none"}. ${String(stats || "").slice(0, 100)}\nYour notes from last turn: ${cleanText(notes, 300) || "(none yet)"}${warnings.length ? `\nWARNING: ${warnings.join(" ")}` : ""}`,
@@ -382,7 +416,7 @@ GAMES["doom-nav"] = {
   },
   // The notes double as the "thought" the page shows.
   result(call) {
-    if (!ACTIONS.includes(call.action)) return null;
+    if (!NAV_ACTIONS.includes(call.action)) return null;
     const notes = cleanText(call.notes, 240);
     return { thought: notes, notes, action: call.action, repeat: Math.min(Math.max(Number(call.repeat) || 2, 1), 8) };
   },
@@ -532,7 +566,7 @@ export const handler = async (event) => {
       model,
       ...(game.extras?.(model, choice) ?? {}),
       max_tokens: typeof game.maxTokens === "function" ? game.maxTokens(model, choice) : game.maxTokens,
-      system: game.system,
+      system: typeof game.system === "function" ? game.system(input) : game.system,
       tools: [game.tool],
       tool_choice: game.toolChoice?.(model, choice) ?? { type: "tool", name: game.tool.name },
       messages: [{ role: "user", content }],
