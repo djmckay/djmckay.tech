@@ -198,17 +198,13 @@ Always call the act tool. Keep "thought" to one short sentence.`,
     maxTokens: 16000,
     extras: adaptiveExtras,
     toolChoice: adaptiveToolChoice,
-    // "few" is an experiment the page asks for: answer with the moves already proven instead of sweeping the board
-    // for every last one. Claude fills the list to its cap almost every turn, at 5000-7600 thinking tokens a turn.
-    system: (input) => `${MS_RULES}
+    system: `${MS_RULES}
 
 You are playing on a text board with 0-indexed row and column numbers.
 Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count), X mine.
 Rules of thumb: if a number equals the count of hidden plus flagged neighbors, all of those neighbors are mines, so flag them. If a number equals its count of flagged neighbors, every other hidden neighbor is safe, so reveal them. Compare neighboring numbers to find more certain cells.
 Only make moves you can prove safe. If none exist, make the lowest-risk guess and say so. On an untouched board, reveal near the center. Never reveal a flagged cell.
-${input.pace === "few"
-  ? `Work outward from one number you can settle, and answer as soon as you have two or three moves you have proved. Do not scan the rest of the board for more: you play again immediately, with the board these moves reveal, so anything you leave is still there next turn. A short answer you are sure of beats a long one with a guess at the end.`
-  : `Think the position through before you answer.`} Then reply only by calling the play tool, with at most the number of moves the message allows, and keep "thought" under 60 words.`,
+Think the position through before you answer. Then reply only by calling the play tool, with at most the number of moves the message allows, and keep "thought" under 60 words.`,
     tool: {
       name: "play",
       description: "Make Minesweeper moves, applied in order.",
