@@ -64,7 +64,7 @@ Resources:
       Runtime: nodejs20.x
       Architectures: [arm64]
       MemorySize: 256
-      Timeout: 60 # a thinking model can take well over 20s per turn
+      Timeout: 120 # a thinking model on a big board has been measured at 56s; the handler may also make a second, quick call
       # Hard ceiling on parallel model calls, and so on spend rate.
       ReservedConcurrentExecutions: 3
       Policies:

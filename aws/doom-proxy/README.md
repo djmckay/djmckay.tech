@@ -43,6 +43,18 @@ A page served from `http://localhost` (an origin that is in `AllowedOrigin` only
 `config.effort: "low"|"medium"|"high"`; every other origin, game or spelling gets the usual default. Fable always
 thinks and rejects a forced tool call, so it gets automatic tool choice and a 5000-token budget.
 
+## When thinking uses the whole budget
+
+Thinking tokens count toward `max_tokens`, so a hard board can think past the ceiling and stop before it calls the
+tool, which used to surface as `502 {"error":"no action"}` and lose the turn. Two things guard against it: the
+Minesweeper budgets are 16000 tokens for the player and 12000 for the verifier (measured: a mid-game Expert turn used
+6379 output tokens in 47s, and a verifier check 5675 in 44s), and if a response still comes back `stop_reason:
+"max_tokens"` with no tool call, the handler asks once more with thinking disabled and the tool forced. That answers
+immediately and returns a real (if less considered) move. Both calls are billed and the `usage` in the reply is their
+sum. The fallback is skipped when thinking was already off, and for Fable, which always thinks and rejects a forced
+tool call. If even the fallback returns nothing, the reply is `502 {"error":"no action: thinking budget"}`, which the
+pages word for the visitor and do not retry. The function's timeout is 120s to leave room for the longer calls.
+
 ## Live-play results
 
 Two routes never call the model: `minesweeper-result` records one finished Claude game and `minesweeper-stats`
