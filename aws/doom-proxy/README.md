@@ -6,8 +6,8 @@ API key never leaves AWS. Requests pick a game with a `game` field (default `doo
 system prompt, tool schema and input validation live in the `GAMES` table in `index.mjs`, so the
 client can't change what the model is asked to do. Responses include estimated token usage and cost.
 
-Games: `doom` (default), `doom-nav` (what the Doom page sends now), `minesweeper`, `minesweeper-verify` and
-`minesweeper-review`.
+Games: `doom` (default), `doom-nav` (what the Doom page sends now), `minesweeper`, `minesweeper-verify`,
+`minesweeper-review` and `minesweeper-read` (measurement only, localhost origins).
 
 Minesweeper requests may carry `config: {model: "haiku"|"sonnet", effort: "low"|"medium"}`. The proxy maps these
 names to model IDs itself; anything else (including other models, `high`/`xhigh`/`max`, or junk) falls back to the
@@ -16,6 +16,29 @@ applies to Sonnet (Haiku has no adaptive thinking). Boards may be up to 16 rows 
 `maxMoves` (1-15) are optional. `minesweeper-verify` takes the board plus the player's `proposed` moves and returns a
 verdict per move (`approve`, `unproven` or `wrong`) with a short reason, so a page can run a second Claude as referee.
 Every Minesweeper prompt starts with the basic rules of the game.
+
+The board goes into the prompt as unpadded rows under a two-line column ruler, so column `n` is the `n`th
+character of a row and the digit directly above it:
+
+```
+     000000000011
+     012345678901
+ 0 | ############
+ 1 | #1..2F###23#
+```
+
+That is not cosmetic. Reading the grid, not reasoning about it, is what loses games: measured over 708 cells
+on 30 mid-game Expert boards, Claude identified a cell correctly 95% of the time but its *neighbours* only
+85%, and 57% of six-cell reads contained at least one error. This rendering read neighbours correctly 91% of
+the time against 82-85% for the alternatives, cut reads containing an error from 63% to 43%, and is 25%
+fewer input tokens. Nothing tried reached even 95%, so it is a smaller error, not a solved one.
+
+`minesweeper-read` is the game that measured it: given a board, some coordinates and a `format`
+(`current`, `raw`, `ruler`, `tagged`), it reports what the board shows at each one, which is checkable
+against the board. It is served only to a `http://localhost` origin and returns 400 anywhere else, so it is
+never a surface on the live site. Adding derived text to the prompt made things worse, not better: given a
+list of every number with its coordinates, the model once reported `1` for a cell showing `F`, reading the
+list instead of the board.
 
 Doom requests may also carry `config: {model: "haiku"|"sonnet", effort: "off"|"low"}`. `off` sends a forced tool
 call with thinking disabled (fast, cheap); `low` gives Sonnet adaptive thinking at low effort with

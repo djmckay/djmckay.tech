@@ -93,17 +93,57 @@ const MS_RULES = `Minesweeper rules are very simple. The board is divided into c
 
 const cell = (v) => String(v).padEnd(2);
 // Validates a board (array of row strings) and renders it as text with 0-indexed row/col headers.
-function formatBoard(board, label = "Board") {
-  if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_ROWS) return null;
+function validBoard(board) {
+  if (!Array.isArray(board) || board.length < 1 || board.length > MS_MAX_ROWS) return 0;
   const cols = board[0]?.length;
-  if (!cols || cols > MS_MAX_COLS) return null;
+  if (!cols || cols > MS_MAX_COLS) return 0;
   for (const row of board) {
-    if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return null;
+    if (typeof row !== "string" || row.length !== cols || !/^[#F.1-8X]+$/.test(row)) return 0;
   }
+  return cols;
+}
+// The original rendering: one header line, every cell padded to two characters. Kept because it is the baseline
+// the format measurement compares against; the live games no longer use it.
+function paddedBoard(board, label = "Board") {
+  const cols = validBoard(board);
+  if (!cols) return null;
   const header = "   " + [...Array(cols).keys()].map(cell).join("");
   const lines = board.map((row, r) => String(r).padStart(2) + " " + [...row].map(cell).join(""));
   return `${label} (${board.length} rows x ${cols} cols):\n${header}\n${lines.join("\n")}`;
 }
+
+// What the games send. A two-line ruler over unpadded rows, so column n is the nth character of a row and the
+// digit directly above it. Measured over 708 cells on 30 mid-game boards against three other renderings: it read
+// neighbours correctly 91% of the time against 82-85%, cut reads containing an error from 63% to 43%, and is
+// 41% smaller. Nothing tried reached even 95%, so this is a smaller error, not a solved one.
+function rulerBoard(board, label = "Board") {
+  const cols = validBoard(board);
+  if (!cols) return null;
+  const tens = "     " + [...Array(cols).keys()].map((i) => Math.floor(i / 10)).join("");
+  const units = "     " + [...Array(cols).keys()].map((i) => i % 10).join("");
+  const lines = board.map((row, r) => `${String(r).padStart(2)} | ${row}`);
+  return `${label} (${board.length} rows x ${cols} cols), column numbers read down the two header lines:\n${tens}\n${units}\n${lines.join("\n")}`;
+}
+const formatBoard = (board, label) => rulerBoard(board, label);
+
+// Alternative renderings of the same board, for measuring whether the layout is what makes cells get misread.
+// Measurement only: reachable from a localhost origin, never from the live page.
+const BOARD_FORMATS = {
+  // The rendering the games used before the measurement: one header line, cells padded to two characters.
+  current: (board) => paddedBoard(board),
+  // The rows exactly as the page holds them, with no coordinates at all.
+  raw: (board) =>
+    `Board (${board.length} rows x ${board[0].length} cols). Row 0 is first, column 0 is the leftmost character of each row:\n${board.join("\n")}`,
+  // What the games send now.
+  ruler: (board) => rulerBoard(board),
+  // The ruler grid, plus every revealed number written out with its coordinates, so no counting is needed to
+  // find one. It still says nothing about which cells neighbour which.
+  tagged: (board) => {
+    const nums = [];
+    board.forEach((row, r) => [...row].forEach((ch, c) => { if (/[1-8]/.test(ch)) nums.push(`(${r},${c})=${ch}`); }));
+    return `${BOARD_FORMATS.ruler(board)}\nRevealed numbers: ${nums.join(" ")}`;
+  },
+};
 // Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
 const cleanText = (s, n) => String(s ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 const validImage = (image) => typeof image === "string" && image.length <= MAX_IMAGE_B64 && /^[A-Za-z0-9+/=]+$/.test(image);
@@ -389,6 +429,69 @@ const navChoice = (input) => {
   if (isDevOrigin() && c.model === "fable") return { model: DEV_MODELS.fable, effort: FABLE_EFFORTS.includes(c.effort) ? c.effort : "low" };
   return doomChoice(input);
 };
+// Measures reading, not play: given a board and some coordinates, report what is at each one and which of its
+// neighbours are hidden or flagged. Both Expert losses came from a misread cell rather than bad reasoning, and
+// the answers here are checkable against the board, so this says whether the rendering is at fault.
+// Localhost only, so it is never a surface on the live site.
+GAMES["minesweeper-read"] = {
+  choose: msChoice,
+  maxTokens: 8000,
+  extras: adaptiveExtras,
+  toolChoice: adaptiveToolChoice,
+  system: `${MS_RULES}
+
+You are reading a Minesweeper board. You are not playing: make no moves and give no advice.
+Symbols: # hidden cell, F flagged cell, . revealed empty cell (0 adjacent mines), 1-8 revealed number (adjacent mine count). Rows and columns are 0-indexed, row 0 at the top and column 0 on the left.
+For each coordinate you are asked about, report exactly three things from the board as drawn:
+- symbol: the single character at that cell.
+- hidden: the coordinates of its neighbours (the up-to-8 cells touching it, including diagonals) that show #.
+- flagged: the coordinates of its neighbours that show F.
+Count only what is actually drawn. Do not infer, deduce, or correct the board. A cell on an edge or corner has fewer than 8 neighbours.
+Think it through, then reply only by calling the report tool.`,
+  tool: {
+    name: "report",
+    description: "Report what the board shows at each requested coordinate.",
+    input_schema: {
+      type: "object",
+      properties: {
+        cells: {
+          type: "array",
+          minItems: 1,
+          maxItems: 12,
+          items: {
+            type: "object",
+            properties: {
+              row: { type: "integer", minimum: 0, maximum: MS_MAX_ROWS - 1 },
+              col: { type: "integer", minimum: 0, maximum: MS_MAX_COLS - 1 },
+              symbol: { type: "string", maxLength: 1 },
+              hidden: { type: "array", maxItems: 8, items: { type: "array", minItems: 2, maxItems: 2, items: { type: "integer" } } },
+              flagged: { type: "array", maxItems: 8, items: { type: "array", minItems: 2, maxItems: 2, items: { type: "integer" } } },
+            },
+            required: ["row", "col", "symbol", "hidden", "flagged"],
+          },
+        },
+      },
+      required: ["cells"],
+    },
+  },
+  content({ board, probes, format }) {
+    if (!isDevOrigin()) return null; // measurement surface: not reachable from the live site
+    if (!validBoard(board)) return null;
+    const render = BOARD_FORMATS[typeof format === "string" && Object.hasOwn(BOARD_FORMATS, format) ? format : "current"];
+    const text = render(board);
+    if (!text) return null;
+    const list = (Array.isArray(probes) ? probes : []).slice(0, 12)
+      .filter((p) => Number.isInteger(p?.row) && Number.isInteger(p?.col));
+    if (!list.length) return null;
+    return [{ type: "text", text: `${text}\nReport on these ${list.length} cells: ${list.map((p) => `(${p.row},${p.col})`).join(" ")}` }];
+  },
+  result(call) {
+    const cells = Array.isArray(call.cells) ? call.cells : [];
+    if (!cells.length) return null;
+    return { cells };
+  },
+};
+
 GAMES["doom-nav"] = {
   ...GAMES.doom,
   choose: navChoice,
