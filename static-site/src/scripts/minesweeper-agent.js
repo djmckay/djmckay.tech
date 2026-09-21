@@ -116,6 +116,29 @@
 
   const finished = () => game.status === "won" || game.status === "lost";
 
+  // Was the losing move a gamble it had to take, or one it could have proved wrong? Worked out here from the same
+  // board Claude saw, so it costs nothing and cannot be flattered by hindsight.
+  const percent = (p) => `${Math.round(p * 100)}%`;
+  function judgeLoss(fatal) {
+    const solver = window.MinesweeperSolver;
+    if (!solver) return ["", null];
+    let call;
+    try { call = solver.judgeReveal(fatal.before, level().mines, fatal.row, fatal.col); }
+    catch { return ["", null]; }
+    const where = `(${fatal.row},${fatal.col})`;
+    if (call.verdict === "blunder") {
+      return [`The board already proved ${where} was a mine, so this one was thrown away.`, "verify-bad"];
+    }
+    if (call.verdict === "avoidable") {
+      const safe = call.safeCells[0];
+      return [`${where} was a ${percent(call.risk)} risk, but (${safe.r},${safe.c}) could be proved safe: the guess was not necessary.`, "verify-warn"];
+    }
+    if (call.verdict === "forced") {
+      return [`Nothing on the board could be proved safe, so a guess was unavoidable. ${where} was the wrong side of a ${percent(call.risk)} chance.`, "verify"];
+    }
+    return ["That position was too tangled to work out whether the guess was avoidable.", "verify"];
+  }
+
   // ---- settings panel
   // Measured on Beginner boards against the live proxy (5 / 5 / 3 games); Intermediate and Expert are untested with Claude.
   const HINTS = {
@@ -425,6 +448,7 @@
       recordResult("won");
     } else if (game.status === "lost") {
       log("Hit a mine.");
+      if (fatal) log(...judgeLoss(fatal));
       if (fatal && mine === epoch) await reflect(fatal, mine);
       if (mine === epoch) recordResult("lost");
     } else if (stopReason === "turns") {
