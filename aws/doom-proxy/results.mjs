@@ -43,12 +43,14 @@ export function parseResult(input) {
   if (!costOk) return null;
   const r = {
     version: input.version, level: input.level, model: input.model, effort, verifier, referee, outcome: input.outcome,
-    cells: input.cells, calls: input.calls, checks: input.checks, secs: input.secs, degraded: input.degraded ?? 0,
+    cells: input.cells, calls: input.calls, checks: input.checks, secs: input.secs,
+    degraded: input.degraded ?? 0, degradedChecks: input.degradedChecks ?? 0,
     costMicro: Math.round(input.costUsd * 1e6),
     flagged: input.flagged, approvedWrong: input.approvedWrong, rejectedFine: input.rejectedFine,
   };
   if (!int(r.cells, 0, safe) || !int(r.calls, 1, lv.maxCalls * 2) || !int(r.checks, 0, maxChecks) || !int(r.secs, 1, 7200)) return null;
   if (!int(r.degraded, 0, r.calls + r.checks)) return null; // turns answered without thinking, at most one per call
+  if (!int(r.degradedChecks, 0, Math.min(r.degraded, r.checks))) return null; // the referee's share of those
   const mistakeMax = r.checks * lv.maxMoves; // each check judges at most maxMoves moves
   if (![r.flagged, r.approvedWrong, r.rejectedFine].every((n) => int(n, 0, mistakeMax))) return null;
   if (r.outcome === "won" ? r.cells !== safe : r.cells >= safe) return null;
@@ -64,13 +66,13 @@ export function updateInput(table, r, nowIso) {
     TableName: table,
     Key: { pk: S("agg"), sk: S(r.key) },
     UpdateExpression:
-      "ADD games :one, wins :w, losses :l, stopped :s, cells :cells, calls :calls, secs :secs, costMicro :cost, checks :checks, flagged :fl, approvedWrong :aw, rejectedFine :rf, degraded :deg, gamesDegraded :degGame " +
+      "ADD games :one, wins :w, losses :l, stopped :s, cells :cells, calls :calls, secs :secs, costMicro :cost, checks :checks, flagged :fl, approvedWrong :aw, rejectedFine :rf, degraded :deg, gamesDegraded :degGame, degradedChecks :degChk " +
       "SET updatedAt = :now, #v = :ver, lvl = :lvl, model = :m, effort = :e, referee = :ref",
     ExpressionAttributeNames: { "#v": "version" },
     ExpressionAttributeValues: {
       ":one": N(1), ":w": N(r.outcome === "won" ? 1 : 0), ":l": N(r.outcome === "lost" ? 1 : 0), ":s": N(r.outcome === "stopped" ? 1 : 0),
       ":cells": N(r.cells), ":calls": N(r.calls), ":secs": N(r.secs), ":cost": N(r.costMicro), ":checks": N(r.checks), ":degGame": N(r.degraded > 0 ? 1 : 0),
-      ":fl": N(r.flagged), ":aw": N(r.approvedWrong), ":rf": N(r.rejectedFine), ":deg": N(r.degraded),
+      ":fl": N(r.flagged), ":aw": N(r.approvedWrong), ":rf": N(r.rejectedFine), ":deg": N(r.degraded), ":degChk": N(r.degradedChecks),
       ":now": S(nowIso), ":ver": S(r.version), ":lvl": S(r.level), ":m": S(r.model), ":e": S(r.effort), ":ref": S(r.referee),
     },
   };
@@ -95,7 +97,7 @@ export function shapeStats(items) {
         games, wins: num(it, "wins"), losses: num(it, "losses"), stopped: num(it, "stopped"),
         avgCells: avg("cells"), avgCalls: avg("calls"), avgSecs: avg("secs"), avgCostUsd: avg("costMicro") / 1e6,
         checks: num(it, "checks"), flagged: num(it, "flagged"), approvedWrong: num(it, "approvedWrong"), rejectedFine: num(it, "rejectedFine"),
-        degraded: num(it, "degraded"), gamesWithDegraded: num(it, "gamesDegraded"),
+        degraded: num(it, "degraded"), gamesWithDegraded: num(it, "gamesDegraded"), degradedChecks: num(it, "degradedChecks"),
         updatedAt: it.updatedAt?.S ?? null,
       };
     })

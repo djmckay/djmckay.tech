@@ -43,6 +43,7 @@
   let game, running, calls, checks, note, stuck;
   let gameSettings, activeMs, runStart, humanMoved, recorded, refStats; // for the anonymous live-results report
   let degraded; // turns the proxy answered without thinking, because thinking ran out of room or time
+  let degradedChecks; // of those, the ones that were verifier checks rather than the player's own move
   let tick; // repaints the elapsed clock while Claude plays
   let flagMode = false; // touch-friendly alternative to right-click
 
@@ -110,11 +111,24 @@
     const tok = spent.tokens >= 1000 ? `${(spent.tokens / 1000).toFixed(1)}k` : spent.tokens;
     const usd = spent.priced ? `$${spent.usd.toFixed(4)}` : "cost unavailable";
     const verified = settings.verifier || checks ? ` · ${checks} verifier checks` : "";
-    const quick = degraded ? ` · ${degraded} quick ${degraded === 1 ? "answer" : "answers"}` : "";
+    const ofWhich = degradedChecks ? ` (${degradedChecks} by the verifier)` : "";
+    const quick = degraded ? ` · ${degraded} quick ${degraded === 1 ? "answer" : "answers"}${ofWhich}` : "";
     $("ms-cost").textContent = `Est. cost: ${usd} (this game's limit $${level().budgetUsd}) · ${tok} tokens · ${calls} turns · ${clock(elapsedMs())}${verified}${quick}`;
   }
 
   const finished = () => game.status === "won" || game.status === "lost";
+
+  // The proxy answers without thinking when thinking runs out of room or time. That is worth saying for the referee
+  // as much as for the player: a referee that did not think is waving moves through rather than checking them.
+  function noteIfQuick(reply, who) {
+    if (!reply?.degraded) return;
+    degraded++;
+    if (who === "referee") degradedChecks++;
+    const why = reply.degraded === "deadline" ? "was still thinking after 90 seconds" : "used up its thinking room on this position";
+    log(who === "referee"
+      ? `The verifier ${why}, so it answered quickly instead. It checked these moves with less thought than usual.`
+      : `Claude ${why}, so it answered quickly instead. This move had less thought behind it.`, "verify-warn");
+  }
 
   // Was the losing move a gamble it had to take, or one it could have proved wrong? Worked out here from the same
   // board Claude saw, so it costs nothing and cannot be flattered by hindsight.
@@ -299,6 +313,7 @@
       }
       if (mine !== epoch) return null;
       checks++;
+      noteIfQuick(review, "referee");
       addUsage(review.usage);
       showCost();
       const byIndex = new Map(review.verdicts.map((v) => [v.index, v]));
@@ -383,6 +398,7 @@
       secs: Math.max(1, Math.round(activeMs / 1000)),
       costUsd: Number(spent.usd.toFixed(6)),
       degraded,
+      degradedChecks,
       flagged: refStats.flagged,
       approvedWrong: refStats.approvedWrong,
       rejectedFine: refStats.rejectedFine,
@@ -403,12 +419,7 @@
         const proposal = await decide(null);
         if (mine !== epoch) return;
         calls++;
-        if (proposal.degraded) {
-          degraded++;
-          log(proposal.degraded === "deadline"
-            ? "Claude was still thinking after 90 seconds, so it answered quickly instead. This move had less thought behind it."
-            : "Claude used up its thinking room on this position, so it answered quickly instead. This move had less thought behind it.", "verify-warn");
-        }
+        noteIfQuick(proposal, "player");
         addUsage(proposal.usage);
         showCost();
         log(proposal.thought);
@@ -484,6 +495,7 @@
     recorded = false;
     refStats = { flagged: 0, approvedWrong: 0, rejectedFine: 0 };
     degraded = 0;
+    degradedChecks = 0;
     note = "none";
     stuck = 0;
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });

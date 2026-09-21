@@ -58,7 +58,10 @@
   // A "quick answer" is a turn the proxy answered with thinking switched off, because thinking ran out of room or
   // time. The move is Claude's immediate one, so a game with several is a weaker result than a clean one.
   const quickNote = (s) =>
-    s.degraded ? `; ${s.degraded} quick ${s.degraded === 1 ? "answer" : "answers"} in ${s.gamesWithDegraded} of ${s.games} games` : "";
+    s.degraded
+      ? `; ${s.degraded} quick ${s.degraded === 1 ? "answer" : "answers"} in ${s.gamesWithDegraded} of ${s.games} games${
+          s.degradedChecks ? `, ${s.degradedChecks} of them referee checks` : ""}`
+      : "";
   const summary = (s) =>
     `${setupLabel(s)}: won ${s.wins}, lost ${s.losses}, stopped ${s.stopped} of ${s.games} games; average ${s.avgCells.toFixed(1)} of ${LEVELS[s.level].safe} safe cells, ${Math.round(s.avgSecs)} s, $${s.avgCostUsd.toFixed(3)} per game${quickNote(s)}`;
 
@@ -164,7 +167,7 @@
     tbl.appendChild(head);
     for (const s of list) {
       const tr = el("tr");
-      [setupLabel(s), s.games, s.wins, s.losses, s.stopped, `${s.avgCells.toFixed(1)} of ${LEVELS[s.level].safe}`, s.avgCalls.toFixed(1), s.degraded ? `${s.degraded} (${s.gamesWithDegraded} games)` : "0", Math.round(s.avgSecs), `$${s.avgCostUsd.toFixed(3)}`]
+      [setupLabel(s), s.games, s.wins, s.losses, s.stopped, `${s.avgCells.toFixed(1)} of ${LEVELS[s.level].safe}`, s.avgCalls.toFixed(1), s.degraded ? `${s.degraded} (${s.gamesWithDegraded} games${s.degradedChecks ? `, ${s.degradedChecks} referee` : ""})` : "0", Math.round(s.avgSecs), `$${s.avgCostUsd.toFixed(3)}`]
         .forEach((v) => tr.appendChild(el("td", null, String(v))));
       tbl.appendChild(tr);
     }
