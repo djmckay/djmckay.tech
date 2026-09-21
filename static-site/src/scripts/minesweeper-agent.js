@@ -12,7 +12,10 @@
   const LEVELS = {
     beginner:     { label: "Beginner (8×8, 10 mines)",      rows: 8,  cols: 8,  mines: 10, maxMoves: 5,  maxCalls: 40, budgetUsd: 1, cellPx: 44, fontRem: 1.25 },
     intermediate: { label: "Intermediate (16×16, 40 mines)", rows: 16, cols: 16, mines: 40, maxMoves: 10, maxCalls: 60, budgetUsd: 2, cellPx: 30, fontRem: 1 },
-    expert:       { label: "Expert (30×16, 99 mines)",       rows: 16, cols: 30, mines: 99, maxMoves: 15, maxCalls: 80, budgetUsd: 3, cellPx: 22, fontRem: 0.8 },
+    // Expert at $3 stopped three quarters of the way through a game it had not lost, so the budget is the
+    // one that has to cover a whole board: 40 turns cost $3.10, which puts a finished game near $6 and just
+    // inside the 80-turn cap.
+    expert:       { label: "Expert (30×16, 99 mines)",       rows: 16, cols: 30, mines: 99, maxMoves: 15, maxCalls: 80, budgetUsd: 6, cellPx: 22, fontRem: 0.8 },
   };
   const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
   const EFFORTS = ["low", "medium"];
@@ -177,7 +180,7 @@
     if (settings.verifier) {
       parts.push(`Verifier (${settings.vModel === "haiku" ? "Haiku" : `Sonnet, ${settings.vEffort}`}) adds a Claude call per turn, and a revision when it objects. In test games it caught many bad moves, but a Haiku player with a Sonnet verifier still lost all 6.`);
     }
-    if (settings.level !== "beginner") parts.push("Intermediate and Expert haven't been tested with Claude yet; expect many more turns, and games may stop at their budget.");
+    if (settings.level !== "beginner") parts.push("Intermediate and Expert run far longer and cost much more; Claude has yet to finish an Expert board, and a game may stop at its budget before the board is done. The live results page has the current numbers.");
     $("ms-hint").textContent = parts.join(" ");
   }
 
