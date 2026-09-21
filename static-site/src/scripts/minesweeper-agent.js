@@ -299,7 +299,10 @@
 
   // Runs the referee over a proposal. Returns { moves, thought } to apply, or null if the game was reset meanwhile.
   // Round 1 judges the proposal; if anything is not approved the player revises once and round 2 judges again.
-  // After the last round, approved and unproven moves are applied and moves judged wrong are dropped.
+  // Only moves the referee could prove are applied. Unproven ones used to be played too, which lost a game on
+  // turn 6: the referee twice refused to prove a reveal, said exactly why (a number had been misread), and the
+  // move went in anyway onto a cell that was a 48% mine. A mine ends the game and a held move costs only a turn,
+  // so the trade is one-sided.
   async function verifyMoves(first, mine) {
     let proposal = first;
     let annotated = [];
@@ -353,7 +356,29 @@
       showCost();
       log(`Revised: ${proposal.thought}`);
     }
-    return { moves: annotated.filter((m) => m.verdict !== "wrong"), thought: proposal.thought };
+    // A move only counts if it would change the board: an open cell can be neither revealed nor flagged, and a
+    // flagged one is refused by reveal and merely toggled back off by flag. Without this a turn of approved
+    // no-ops would spend a call, move nothing, and hold back the guess the board actually needs for ever.
+    const changes = (m) => { const cell = game.cells[m.row]?.[m.col]; return !!cell && !cell.open && !cell.flag; };
+    const live = annotated.filter(changes);
+    const proven = live.filter((m) => m.verdict === "approve");
+    if (proven.length) {
+      const held = live.length - proven.length;
+      if (held) log(`Holding back ${held} move${held === 1 ? "" : "s"} the verifier could not prove, and playing the ${proven.length} it could.`, "verify-warn");
+      return { moves: proven, thought: proposal.thought };
+    }
+    // Nothing could be proved, so this position genuinely needs a guess. Claude's own first choice is played
+    // rather than one the page picks: choosing the cell here would make the page the player. Only one goes in,
+    // because every later move in the proposal was reasoned from the guess being right.
+    const guesses = live.filter((m) => m.verdict !== "wrong");
+    if (!guesses.length) {
+      const note = live.length
+        ? "The referee rejected every move you proposed."
+        : "Every move you proposed had already been made: those cells are open or already flagged.";
+      return { moves: [], thought: proposal.thought, note };
+    }
+    log(`Nothing this turn could be proved, so Claude is guessing with ${describe(guesses[0])}.`, "verify-warn");
+    return { moves: guesses.slice(0, 1), thought: proposal.thought };
   }
 
   // After a loss, ask Claude for one reusable lesson and add it to the notebook.
@@ -450,7 +475,7 @@
         await sleep(MOVE_DELAY_MS);
       }
       if (mine !== epoch) return;
-      note = results.length ? results.join("; ") : "The referee rejected every move you proposed.";
+      note = results.length ? results.join("; ") : plan.note || "The referee rejected every move you proposed.";
       render();
       stuck = anyOk ? 0 : stuck + 1;
       if (stuck >= STUCK_LIMIT) { log("Claude got stuck making invalid moves.", "err"); stopReason = "stuck"; break; }
