@@ -5,7 +5,10 @@
 // Flags are the player's opinion, not fact, so they count as unknown cells like any other hidden one.
 (function (root) {
   const HIDDEN = "#F";
-  const CAP = 22; // unknowns in one component; beyond this the enumeration is abandoned rather than run for minutes
+  // A real Expert frontier runs to dozens of cells, so the limit is on work done rather than on size: cells are
+  // ordered so that each constraint completes as early as possible, and the search gives up if it is still going
+  // after this many steps. Enough for the boards this game produces; a pathological one is declined, not guessed at.
+  const BUDGET = 3e6;
 
   const choose = (n, k) => {
     if (k < 0 || k > n) return 0;
@@ -62,11 +65,36 @@
     return [...groups.values()].map((g) => ({ cells: [...g.cells], constraints: g.constraints }));
   }
 
-  // Every way to place mines in one component, tallied by how many mines it used.
+  // Cells that share a constraint, visited together, so a constraint is fully assigned as early as possible and the
+  // search can prune instead of walking the whole tree.
+  function orderCells(comp) {
+    const neighbours = new Map(comp.cells.map((c) => [c, new Set()]));
+    for (const con of comp.constraints) {
+      for (const a of con.cells) for (const b of con.cells) if (a !== b) neighbours.get(a).add(b);
+    }
+    const seen = new Set();
+    const order = [];
+    for (const start of comp.cells) {
+      if (seen.has(start)) continue;
+      const queue = [start];
+      seen.add(start);
+      while (queue.length) {
+        const cell = queue.shift();
+        order.push(cell);
+        for (const n of neighbours.get(cell)) if (!seen.has(n)) { seen.add(n); queue.push(n); }
+      }
+    }
+    return order;
+  }
+
+  // Every way to place mines in one component, tallied by how many mines it used. Null if it runs past the budget.
   function solveComponent(comp) {
-    const local = new Map(comp.cells.map((c, i) => [c, i]));
+    const ordered = orderCells(comp);
+    const local = new Map(ordered.map((c, i) => [c, i]));
     const cons = comp.constraints.map((con) => ({ cells: con.cells.map((c) => local.get(c)), n: con.n }));
-    const size = comp.cells.length;
+    const size = ordered.length;
+    comp = { ...comp, cells: ordered };
+    let steps = 0;
     const assign = new Array(size).fill(-1);
     const byK = new Map(); // mines used -> { solutions, mineCount per local cell }
     const ok = (i) => cons.every((con) => {
@@ -76,21 +104,23 @@
       if (!touched) return true;
       return mines <= con.n && mines + unset >= con.n;
     });
-    (function recurse(i, used) {
+    const overBudget = (function recurse(i, used) {
+      if (++steps > BUDGET) return true;
       if (i === size) {
         const slot = byK.get(used) || { solutions: 0, mine: new Array(size).fill(0) };
         slot.solutions++;
         for (let c = 0; c < size; c++) if (assign[c] === 1) slot.mine[c]++;
         byK.set(used, slot);
-        return;
+        return false;
       }
       for (const v of [0, 1]) {
         assign[i] = v;
-        if (ok(i)) recurse(i + 1, used + v);
+        if (ok(i) && recurse(i + 1, used + v)) { assign[i] = -1; return true; }
       }
       assign[i] = -1;
+      return false;
     })(0, 0);
-    return { cells: comp.cells, size, byK };
+    return overBudget ? null : { cells: comp.cells, size, byK };
   }
 
   // Chance that each unknown cell holds a mine, given the numbers on the board and how many mines are left.
@@ -99,8 +129,8 @@
     const { unknown, constraints } = readBoard(rows);
     if (!unknown.length) return { odds: new Map(), unknown };
     const comps = components(unknown, constraints);
-    if (comps.some((c) => c.cells.length > CAP)) return null;
     const solved = comps.map(solveComponent);
+    if (solved.some((s) => s === null)) return null; // one region was too tangled to enumerate honestly
     const constrained = new Set(comps.flatMap((c) => c.cells));
     const free = unknown.map((_, i) => i).filter((i) => !constrained.has(i));
 
