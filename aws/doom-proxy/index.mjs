@@ -153,6 +153,26 @@ const BOARD_FORMATS = {
   ruler: (board) => rulerBoard(board),
   // A single-character column key, so the ruler is one line and sits exactly over its column.
   alnum: (board) => alnumBoard(board),
+  // The grid kept, but every cell delimited, so the column numbers and the cells they head are broken up the
+  // same way instead of the header being one run of digits over a run of symbols.
+  csvwide: (board) => {
+    const cols = validBoard(board);
+    if (!cols) return null;
+    const head = "row," + [...Array(cols).keys()].join(",");
+    const lines = board.map((row, r) => `${r},${[...row].join(",")}`);
+    return `Board (${board.length} rows x ${cols} cols) as CSV. The first line gives the column number of each `
+      + `field; every later line starts with its row number:\n${head}\n${lines.join("\n")}`;
+  },
+  // One line per cell, so a coordinate never has to be counted out at all. The cost is that a cell's neighbours
+  // are no longer next to it - on a 30-wide board they are about 30 lines away - and neighbours are the thing
+  // the model is worst at. Also about three times the tokens.
+  csvlong: (board) => {
+    const cols = validBoard(board);
+    if (!cols) return null;
+    const rows = [];
+    board.forEach((row, r) => [...row].forEach((ch, c) => rows.push(`${r},${c},${ch}`)));
+    return `Board (${board.length} rows x ${cols} cols) as one line per cell:\nrow,col,value\n${rows.join("\n")}`;
+  },
   // The ruler grid, plus every revealed number written out with its coordinates, so no counting is needed to
   // find one. It still says nothing about which cells neighbour which.
   tagged: (board) => {
@@ -161,6 +181,14 @@ const BOARD_FORMATS = {
     return `${BOARD_FORMATS.ruler(board)}\nRevealed numbers: ${nums.join(" ")}`;
   },
 };
+// The board a game sends. Every visitor gets the measured default; a page served from localhost may name one of
+// the other renderings, so a format can be tried in a real game before it is shipped to anyone. An unknown name
+// falls back rather than failing, and the live site cannot reach this at all.
+const renderBoard = (format, board, label = "Board") =>
+  isDevOrigin() && typeof format === "string" && Object.hasOwn(BOARD_FORMATS, format)
+    ? BOARD_FORMATS[format](board)
+    : formatBoard(board, label);
+
 // Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
 const cleanText = (s, n) => String(s ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 const validImage = (image) => typeof image === "string" && image.length <= MAX_IMAGE_B64 && /^[A-Za-z0-9+/=]+$/.test(image);
@@ -291,8 +319,8 @@ ${input.pace === "few"
         required: ["thought", "moves"],
       },
     },
-    content({ board, mines, minesLeft, maxMoves, note, lessons }) {
-      const text = formatBoard(board);
+    content({ board, mines, minesLeft, maxMoves, note, lessons, format }) {
+      const text = renderBoard(format, board);
       if (!text) return null;
       const notes = (Array.isArray(lessons) ? lessons : []).filter((l) => typeof l === "string").slice(0, 8).map((l) => cleanText(l, 240)).filter(Boolean);
       const notebook = notes.length
@@ -353,8 +381,8 @@ Think it through, then reply only by calling the review_moves tool.`,
         required: ["summary", "verdicts"],
       },
     },
-    content({ board, mines, minesLeft, proposed }) {
-      const text = formatBoard(board);
+    content({ board, mines, minesLeft, proposed, format }) {
+      const text = renderBoard(format, board);
       if (!text) return null;
       const moves = validMoves(proposed?.moves, board.length, board[0].length).slice(0, MS_MAX_MOVES);
       if (!moves.length) return null;

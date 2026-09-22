@@ -283,7 +283,13 @@
     }
   }
 
-  const boardFields = () => ({ board: game.toRows(), mines: level().mines, minesLeft: game.flagsLeft() });
+  // ?format=<name> asks the proxy for a different board rendering, for trying one in a real game before it
+  // ships. The proxy honours it only from a localhost origin, so on the live site it does nothing at all.
+  const boardFormat = new URLSearchParams(location.search).get("format") || null;
+  const boardFields = () => ({
+    board: game.toRows(), mines: level().mines, minesLeft: game.flagsLeft(),
+    ...(boardFormat ? { format: boardFormat } : {}),
+  });
 
   // `feedback` is the verifier's objections when the player is asked to revise a rejected proposal.
   const decide = (feedback) =>
@@ -437,7 +443,9 @@
   // Reports one finished Claude game, anonymously, for the results page. Never blocks or breaks the game.
   // A game only counts if Claude played it start to finish on the settings it started with.
   function recordResult(outcome) {
-    if (recorded || humanMoved || !spent.priced || !gameSettings) return;
+    // A game played on an experimental board rendering is not the game the results page describes, so it is
+    // not counted: mixing it in would quietly move the averages for every setup it shares a row with.
+    if (recorded || humanMoved || !spent.priced || !gameSettings || boardFormat) return;
     const same = ["level", "model", "effort", "verifier", "vModel", "vEffort"].every((k) => gameSettings[k] === settings[k]);
     if (!same) return;
     recorded = true;
