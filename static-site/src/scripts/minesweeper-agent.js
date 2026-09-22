@@ -48,6 +48,9 @@
 
   let game, running, calls, checks, note, stuck;
   let noProof; // consecutive turns where the referee could prove nothing the player proposed
+  // Moves the referee has refused on the board as it currently stands, cleared the moment anything is played.
+  // A turn that applies nothing leaves the board untouched, so its refusals still hold next turn.
+  let refused;
   let gameSettings, activeMs, runStart, humanMoved, recorded, refStats; // for the anonymous live-results report
   let degraded; // turns the proxy answered without thinking, because thinking ran out of room or time
   let degradedChecks; // of those, the ones that were verifier checks rather than the player's own move
@@ -316,11 +319,12 @@
   async function verifyMoves(first, mine) {
     let proposal = first;
     let annotated = [];
-    // A refusal from an earlier round, kept so a later one cannot undo it. The board does not change between
-    // rounds, so a move that goes from unproven to approved has not been settled by new evidence: the player
-    // has simply restated its case and won the argument. That lost a game on turn 14, on a cell the referee
-    // had correctly called unproven and the solver later priced at 15% mine.
-    const refused = new Map();
+    // Refusals are kept so a later verdict cannot undo one. Nothing the referee learns between rounds comes
+    // from the board, so a move going from unproven to approved has been argued down rather than settled: that
+    // lost a game on turn 14, on a cell the solver later priced at 15% mine. The same holds across turns while
+    // the board stands still - a turn that plays nothing leaves the position exactly as the referee refused it,
+    // and a live game did flip a 25% guess to "provably safe" that way. `refused` is therefore cleared by the
+    // move loop when a move actually lands, not here.
     const at = (m) => `${m.action} ${m.row},${m.col}`;
     for (let round = 1; round <= MAX_VERIFY_ROUNDS; round++) {
       let review;
@@ -516,6 +520,8 @@
       if (mine !== epoch) return;
       note = results.length ? results.join("; ") : plan.note || "The referee rejected every move you proposed.";
       render();
+      // Something reached the board, so every earlier refusal was about a position that no longer exists.
+      if (anyOk) refused.clear();
       stuck = anyOk ? 0 : stuck + 1;
       if (stuck >= STUCK_LIMIT) { log("Claude got stuck making invalid moves.", "err"); stopReason = "stuck"; break; }
     }
@@ -566,6 +572,7 @@
     note = "none";
     stuck = 0;
     noProof = 0;
+    refused = new Map();
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     const lvl = level();
     game = Minesweeper.create(lvl.rows, lvl.cols, lvl.mines);
