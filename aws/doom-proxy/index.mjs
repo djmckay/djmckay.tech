@@ -126,6 +126,21 @@ function rulerBoard(board, label = "Board") {
 }
 const formatBoard = (board, label) => rulerBoard(board, label);
 
+// One header line instead of two: each column keyed by a single base-36 character, so the key sits exactly above
+// its column with nothing to read down. The cost is at the other end - a move has to be named with a number, so
+// the model must turn T back into 29, which the two-line decimal ruler never asks of it. Measured, not assumed.
+const B36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function alnumBoard(board, label = "Board") {
+  const cols = validBoard(board);
+  if (!cols || cols > B36.length) return null;
+  const key = "   " + B36.slice(0, cols);
+  const lines = board.map((row, r) => `${String(r).padStart(2)} ${row}`);
+  const last = B36[cols - 1];
+  return `${label} (${board.length} rows x ${cols} cols). The header keys each column with one character: `
+    + `0-9 are columns 0-9, then A is column 10, B is 11, and so on up to ${last} for column ${cols - 1}. `
+    + `Rows are numbered on the left. Always give a column as its number, never its letter:\n${key}\n${lines.join("\n")}`;
+}
+
 // Alternative renderings of the same board, for measuring whether the layout is what makes cells get misread.
 // Measurement only: reachable from a localhost origin, never from the live page.
 const BOARD_FORMATS = {
@@ -136,6 +151,8 @@ const BOARD_FORMATS = {
     `Board (${board.length} rows x ${board[0].length} cols). Row 0 is first, column 0 is the leftmost character of each row:\n${board.join("\n")}`,
   // What the games send now.
   ruler: (board) => rulerBoard(board),
+  // A single-character column key, so the ruler is one line and sits exactly over its column.
+  alnum: (board) => alnumBoard(board),
   // The ruler grid, plus every revealed number written out with its coordinates, so no counting is needed to
   // find one. It still says nothing about which cells neighbour which.
   tagged: (board) => {
