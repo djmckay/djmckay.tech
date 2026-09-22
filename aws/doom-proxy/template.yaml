@@ -7,6 +7,10 @@ Parameters:
     Type: String
     Default: djmckay/anthropic-api-key
     Description: Name of an existing Secrets Manager secret holding the Anthropic API key (plain string)
+  TypesafeSecretName:
+    Type: String
+    Default: djmckay/typesafe-ai-api-key
+    Description: Name of a Secrets Manager secret holding the TypeSafe API key. Pass an empty string to turn the odds route off and grant it no access.
   AllowedOrigin:
     Type: String
     Default: https://djmckay.tech|https://www.djmckay.tech
@@ -33,6 +37,9 @@ Parameters:
     Type: String
     Default: claude-sonnet-5
     Description: Model for Minesweeper and its post-mortems (Doom uses Model)
+
+Conditions:
+  HasTypesafeSecret: !Not [!Equals [!Ref TypesafeSecretName, ""]]
 
 Resources:
   ResultsTable:
@@ -79,9 +86,18 @@ Resources:
               Action: secretsmanager:GetSecretValue
               # Secrets Manager appends a random suffix to the ARN, hence the trailing -*
               Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
+        # Only attached when a TypeSafe secret name is given, so the default deploy grants nothing extra.
+        - !If
+          - HasTypesafeSecret
+          - Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${TypesafeSecretName}-*
+          - !Ref AWS::NoValue
       Environment:
         Variables:
           ANTHROPIC_SECRET_ID: !Ref AnthropicSecretName
+          TYPESAFE_SECRET_ID: !Ref TypesafeSecretName
           RESULTS_TABLE: !Ref ResultsTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           DAILY_CALL_CAP: !Ref DailyCallCap
