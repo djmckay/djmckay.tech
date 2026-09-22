@@ -17,28 +17,49 @@ applies to Sonnet (Haiku has no adaptive thinking). Boards may be up to 16 rows 
 verdict per move (`approve`, `unproven` or `wrong`) with a short reason, so a page can run a second Claude as referee.
 Every Minesweeper prompt starts with the basic rules of the game.
 
-The board goes into the prompt as unpadded rows under a two-line column ruler, so column `n` is the `n`th
-character of a row and the digit directly above it:
+The board goes into the prompt as one line per cell, not as a picture of a board:
 
 ```
-     000000000011
-     012345678901
- 0 | ############
- 1 | #1..2F###23#
+Board (16 rows x 30 cols) as one line per cell:
+row,col,value
+0,0,#
+0,1,1
+0,2,.
 ```
 
-That is not cosmetic. Reading the grid, not reasoning about it, is what loses games: measured over 708 cells
-on 30 mid-game Expert boards, Claude identified a cell correctly 95% of the time but its *neighbours* only
-85%, and 57% of six-cell reads contained at least one error. This rendering read neighbours correctly 91% of
-the time against 82-85% for the alternatives, cut reads containing an error from 63% to 43%, and is 25%
-fewer input tokens. Nothing tried reached even 95%, so it is a smaller error, not a solved one.
+That is not a style choice. Reading the grid, not reasoning about it, is what loses games, and it was measured:
+177 probe cells on 30 mid-game Expert boards, eight renderings, every answer checkable against the solver.
+
+| Rendering | Symbol | Neighbours | All three | $/call |
+|---|---|---|---|---|
+| bare rows, no coordinates | 92.7% | 81.9% | 78.0% | |
+| grid + a list of every number's coordinates | 98.3% | 81.9% | 79.1% | |
+| padded grid, one header line (the original) | 96.0% | 85.3% | 80.8% | 0.017 |
+| grid keyed 0-9 then A-Z | 94.9% | 87.6% | 85.3% | |
+| two-line decimal ruler | 93.8% | 91.0% | 87.0% | 0.026 |
+| CSV grid, every cell delimited | 96.0% | 97.2% | 92.7% | |
+| **one line per cell (shipped)** | **100%** | **99.4%** | **99.4%** | **0.018** |
+| the structured state, as JSON | 100% | 100% | 100% | 0.066 |
+
+Every grid lost cells to the same step - working out which cells touch which - and none of them reached 95%.
+Naming the coordinates removes that step instead of making it easier. It is also *cheaper* than the ruler it
+replaces, which is not what the token count suggests: the board text is several times longer, but the model
+spends less than half the thinking on it, and output costs five times input.
+
+Two results worth keeping in mind before adding anything to a prompt. Appending a list of every number with its
+coordinates *beside* a grid made things worse, not better - the model read the list instead of the board, once
+answering `1` for a cell showing `F`. And in the original grid, cells in two-digit columns were misread 11.6
+times as often as cells in single-digit columns (p=0.0007), which is why a rendering that never asks for a
+column to be counted out wins by so much.
+
+The JSON rendering ties the shipped one and costs 3.7x more, so it is not the default. It exists because it is
+the same state the TypeSafe route sends, and comparing a structured request to one model with a text board to
+another would measure the format rather than the models.
 
 `minesweeper-read` is the game that measured it: given a board, some coordinates and a `format`
-(`current`, `raw`, `ruler`, `tagged`), it reports what the board shows at each one, which is checkable
-against the board. It is served only to a `http://localhost` origin and returns 400 anywhere else, so it is
-never a surface on the live site. Adding derived text to the prompt made things worse, not better: given a
-list of every number with its coordinates, the model once reported `1` for a cell showing `F`, reading the
-list instead of the board.
+(`current`, `raw`, `ruler`, `alnum`, `csvwide`, `csvlong`, `json`), it reports what the board shows at each
+one, which is checkable against the board. It is served only to a `http://localhost` origin and returns 400
+anywhere else, so it is never a surface on the live site.
 
 Doom requests may also carry `config: {model: "haiku"|"sonnet", effort: "off"|"low"}`. `off` sends a forced tool
 call with thinking disabled (fast, cheap); `low` gives Sonnet adaptive thinking at low effort with
@@ -65,6 +86,81 @@ A page served from `http://localhost` (an origin that is in `AllowedOrigin` only
 `doom-nav` for `config.model: "fable"` (Claude Fable 5.1, about 2.6 cents a step at low effort) with
 `config.effort: "low"|"medium"|"high"`; every other origin, game or spelling gets the usual default. Fable always
 thinks and rejects a forced tool call, so it gets automatic tool choice and a 5000-token budget.
+
+## Asking TypeSafe for odds instead of asking a model for moves
+
+`minesweeper-odds` is a different upstream with a different shape, so it is a route of its own rather than an
+entry in `GAMES`. It posts to TypeSafe System One (`https://api.typesafe.ai/v1/systemone`, model `jev-latest`),
+which evaluates one `state` against a map of typed questions and answers each with a probability.
+
+That suits this game: the only question Minesweeper ever asks is whether a cell is a mine, which is one `noul`
+per hidden frontier cell. Two things follow. The model never has to produce a coordinate, because the cell is
+named in the question and the answer comes back under the same key (`r14c10`). And the state is structure rather
+than a picture of a board, so adjacency — which the board-format measurements found it gets wrong 15% of the
+time — is computed here and handed over as a field:
+
+```json
+{ "number": [13, 10], "value": 3,
+  "flaggedNeighbours": [[12, 9]],
+  "hiddenNeighbours": [[14, 9], [14, 10], [14, 11]] }
+```
+
+This is not the `tagged` experiment that made things worse. That failed because a coordinate list sat beside a
+grid and the model believed the list over the board; here there is no grid to disagree with.
+
+Questions are built in `typesafe.mjs`, not by the page, for the same reason the prompts are. Cells no number
+touches are left out — the count of unaccounted-for mines already says everything there is to say about them.
+Their error codes are mapped: 401 means our key, so the visitor gets a 500; 422 and anything else become 502;
+429 and 529 become "slow down". An answer that is missing, wrong-typed or outside 0..1 is dropped rather than
+acted on, since a bad probability would be used as if it were a measurement.
+
+### Two shapes, because a Choice distribution is not a per-cell probability
+
+`mode: "play"` asks **three questions whatever the board's size**, which is all a turn needs:
+
+| Question | Type | Answers |
+|---|---|---|
+| `safest_reveal` | Choice over every frontier cell | which cell to open |
+| `likeliest_mine` | Choice over every frontier cell | which cell to flag |
+| `any_proven_safe` | Noul | whether opening is a proof or a gamble |
+
+A Choice costs one question however many options it carries (their ceiling is 255), so this is a fixed price
+where the per-cell shape grows with the frontier: on a Beginner board 3 questions and 3.3 KB against 13 and
+5.3 KB; on a 30-wide board still 3 questions where the per-cell shape is already past 22 KB.
+
+The third question cannot ask whether the first one's answer was certain — questions are evaluated
+independently, so none of them sees another's answer. Asked about the board instead, it is answerable alone and
+still says what the game needs: if something was provably safe, a mine under the chosen cell was a blunder
+rather than bad luck. That is the referee's distinction, for one question.
+
+`mode: "measure"` (the default) asks **one question per cell**, and is the only shape whose answers can be
+checked against the solver cell by cell:
+
+- a `noul` per cell — is it a mine — whose criteria describe only the two ends. They must not mention what is
+  forced or what is more likely than not, or the probability becomes a threshold and the calibration goes with it.
+- with `withProof`, a Choice per cell — `forced_safe` / `forced_mine` / `not_determined`. Those are mutually
+  exclusive, which is what a Choice needs. Mine/safe/unknown as one Choice would not be: unknown is a fact about
+  what is known rather than about the cell, so a 50/50 cell would have two defensible answers.
+- with `withBest`, one Choice picking a cell, as in play mode.
+
+The two are not interchangeable. A `noul` returns the probability *that cell* is a mine, so four provably mined
+cells each come back 1.0. A Choice returns the probability each cell is *the* answer and sums to 1, so the same
+four split about 0.25 each, which reads as uncertainty when it is the opposite. Play with the Choices, measure
+with the Nouls.
+
+`MAX_QUESTIONS` (60) caps the per-cell shape, because the published limits say nothing about how many questions
+one request may carry; `withProof` halves the cells that fit and `withBest` takes one slot. The reply returns
+`asked`, `frontier` and `truncated` so a caller can tell when the list was cut short.
+
+The route is served only to a `http://localhost` origin. `TypesafeSecretName` (default
+`djmckay/typesafe-ai-api-key`) names the Secrets Manager secret holding the key; pass an empty string to turn
+the route off and grant the function no access to it.
+
+**Why bother, when the solver is exact.** `minesweeper-solver.js` already enumerates every mine arrangement the
+numbers allow, so it returns true odds for free and nothing can play better than that. The point is the
+opposite: because the exact answer is known, every probability TypeSafe returns can be marked against it —
+Brier score, calibration, and the one that matters, how often a provably-mined cell is called safe. Very few
+real tasks can be scored that precisely.
 
 ## When thinking runs out of room, or out of time
 

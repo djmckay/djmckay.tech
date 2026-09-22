@@ -8,6 +8,7 @@ import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-sec
 
 import { DynamoDBClient, UpdateItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb"; // bundled in the nodejs20.x runtime
 import { parseResult, updateInput, queryInput, shapeStats } from "./results.mjs";
+import { buildRequest, parseAnswers, usageOf, frontier, buildFullState } from "./typesafe.mjs";
 
 const secrets = new SecretsManagerClient({});
 const ddb = new DynamoDBClient({});
@@ -124,7 +125,20 @@ function rulerBoard(board, label = "Board") {
   const lines = board.map((row, r) => `${String(r).padStart(2)} | ${row}`);
   return `${label} (${board.length} rows x ${cols} cols), column numbers read down the two header lines:\n${tens}\n${units}\n${lines.join("\n")}`;
 }
-const formatBoard = (board, label) => rulerBoard(board, label);
+// One line per cell. Measured over 177 probe cells on 30 mid-game Expert boards against seven other
+// renderings: the model read the symbol, the neighbours and the flags correctly on 176 of them, against 87%
+// for the two-line ruler this replaces. Every grid rendering tried lost cells to the same thing - working out
+// which cells touch which - and none reached 95%. Writing the coordinates out removes the step rather than
+// making it easier. It is also cheaper per call ($0.018 against $0.026): the board text is several times
+// longer, but the model spends less than half the thinking on it, and output costs five times input.
+function csvLongBoard(board, label = "Board") {
+  const cols = validBoard(board);
+  if (!cols) return null;
+  const lines = [];
+  board.forEach((row, r) => [...row].forEach((ch, c) => lines.push(`${r},${c},${ch}`)));
+  return `${label} (${board.length} rows x ${cols} cols) as one line per cell:\nrow,col,value\n${lines.join("\n")}`;
+}
+const formatBoard = (board, label) => csvLongBoard(board, label);
 
 // One header line instead of two: each column keyed by a single base-36 character, so the key sits exactly above
 // its column with nothing to read down. The cost is at the other end - a move has to be named with a number, so
@@ -153,6 +167,12 @@ const BOARD_FORMATS = {
   ruler: (board) => rulerBoard(board),
   // A single-character column key, so the ruler is one line and sits exactly over its column.
   alnum: (board) => alnumBoard(board),
+  // The same structured state the TypeSafe route sends: every cell as an object, adjacency implied by
+  // coordinates rather than by position in a grid. Here so the question "is a model better with structure than
+  // with a picture of a board" can be asked of the models already playing, on the same boards and the same
+  // probe as every other rendering. Comparing a structured request to one model against a text grid to another
+  // would measure the format, not the models.
+  json: (board, info = {}) => JSON.stringify(buildFullState(board, info.mines ?? 0, info.minesLeft), null, 1),
   // The grid kept, but every cell delimited, so the column numbers and the cells they head are broken up the
   // same way instead of the header being one run of digits over a run of symbols.
   csvwide: (board) => {
@@ -163,16 +183,10 @@ const BOARD_FORMATS = {
     return `Board (${board.length} rows x ${cols} cols) as CSV. The first line gives the column number of each `
       + `field; every later line starts with its row number:\n${head}\n${lines.join("\n")}`;
   },
-  // One line per cell, so a coordinate never has to be counted out at all. The cost is that a cell's neighbours
-  // are no longer next to it - on a 30-wide board they are about 30 lines away - and neighbours are the thing
-  // the model is worst at. Also about three times the tokens.
-  csvlong: (board) => {
-    const cols = validBoard(board);
-    if (!cols) return null;
-    const rows = [];
-    board.forEach((row, r) => [...row].forEach((ch, c) => rows.push(`${r},${c},${ch}`)));
-    return `Board (${board.length} rows x ${cols} cols) as one line per cell:\nrow,col,value\n${rows.join("\n")}`;
-  },
+  // What the games send now. The prediction was that this would read well and reason badly, because a cell's
+  // neighbours end up about 30 lines apart instead of next to it - and neighbours are what the model is worst
+  // at. Neighbours is exactly what it fixed.
+  csvlong: (board) => csvLongBoard(board),
   // The ruler grid, plus every revealed number written out with its coordinates, so no counting is needed to
   // find one. It still says nothing about which cells neighbour which.
   tagged: (board) => {
@@ -181,12 +195,99 @@ const BOARD_FORMATS = {
     return `${BOARD_FORMATS.ruler(board)}\nRevealed numbers: ${nums.join(" ")}`;
   },
 };
+// TypeSafe System One: asks one yes/no question per hidden frontier cell and gets a probability back, instead of
+// asking a language model to name moves in prose. The board still never leaves this file as a picture of a board;
+// what goes up is the constraints, already worked out. Questions are built here, not by the page, for the same
+// reason the prompts are: the client must not be able to change what is asked.
+const TYPESAFE_URL = process.env.TYPESAFE_URL || "https://api.typesafe.ai/v1/systemone";
+const TYPESAFE_MODEL = process.env.TYPESAFE_MODEL || "jev-latest";
+const TYPESAFE_DEADLINE_MS = Number(process.env.TYPESAFE_DEADLINE_MS || 60_000);
+let typesafeKeyPromise;
+function getTypesafeKey() {
+  const id = process.env.TYPESAFE_SECRET_ID;
+  if (!id) return Promise.reject(new Error("no typesafe secret configured"));
+  typesafeKeyPromise ??= secrets
+    .send(new GetSecretValueCommand({ SecretId: id }))
+    .then(({ SecretString }) => {
+      let parsed;
+      try { parsed = JSON.parse(SecretString); }
+      catch { return SecretString.trim(); }
+      const values = Object.values(parsed);
+      const k = parsed.TYPESAFE_API_KEY ?? (values.length === 1 ? values[0] : undefined);
+      if (typeof k !== "string") throw new Error("secret has no usable key field");
+      return k.trim();
+    })
+    .catch((e) => { typesafeKeyPromise = undefined; throw e; }); // retry next call
+  return typesafeKeyPromise;
+}
+
+async function handleOdds(input) {
+  if (!isDevOrigin()) return reply(400, { error: "unknown game" }); // not a surface on the live site yet
+  const board = input.board;
+  if (!validBoard(board)) return reply(400, { error: "bad input" });
+  const mines = Number.isInteger(input.mines) ? input.mines : 0;
+  // Asking whether a cell is provable as well as how likely it is halves how many cells fit in one request,
+  // so it is asked for rather than assumed.
+  const built = buildRequest(board, mines, input.minesLeft, TYPESAFE_MODEL,
+    { withProof: input.withProof === true, withBest: input.withBest === true,
+      mode: input.mode === "play" ? "play" : "measure",
+      shape: input.shape === "full" ? "full" : "constraints",
+      meta: { difficulty: typeof input.difficulty === "string" ? cleanText(input.difficulty, 24) : null } });
+  // No revealed number means no constraints, so every hidden cell is identical and there is nothing to choose
+  // between. The engine also places mines after the first reveal, so the opening move is safe whatever it is:
+  // the caller should just open a cell rather than pay for an answer.
+  if (!built) return reply(400, { error: "nothing to decide", opening: frontier(board).length === 0 });
+
+  let apiKey;
+  try { apiKey = await getTypesafeKey(); }
+  catch (e) { console.error("typesafe secret unavailable", e?.name); return reply(500, { error: "config" }); }
+
+  let res;
+  try {
+    res = await fetch(TYPESAFE_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(built.body),
+      signal: AbortSignal.timeout(TYPESAFE_DEADLINE_MS),
+    });
+  } catch (e) {
+    console.error("typesafe unreachable", e?.name);
+    return reply(502, { error: e?.name === "TimeoutError" ? "upstream timeout" : "upstream", status: 0 });
+  }
+  const text = await res.text();
+  let body;
+  try { body = JSON.parse(text); } catch { body = null; }
+  if (!res.ok) {
+    // Their documented codes: 401 key, 422 malformed request, 429 rate limit, 529 overloaded.
+    console.error("typesafe error", res.status, text.slice(0, 200));
+    if (res.status === 401) return reply(500, { error: "config" }); // our key, not the visitor's problem
+    if (res.status === 429 || res.status === 529) return reply(429, { error: "slow down" });
+    return reply(502, { error: "upstream", status: res.status });
+  }
+  const parsed = parseAnswers(body);
+  if (!parsed) return reply(502, { error: "no answers" });
+  const whole = frontier(board).length; // the real total, so the reply can say the question list was cut short
+  return reply(200, {
+    odds: parsed.odds,
+    proofs: parsed.proofs,
+    best: parsed.best,
+    flag: parsed.flag,
+    awayOdds: parsed.awayOdds,
+    awayCell: built.away ? { row: built.away.row, col: built.away.col } : null,
+    asked: built.cells.length,
+    frontier: whole,
+    truncated: built.cells.length < whole,
+    model: typeof body.model === "string" ? body.model : TYPESAFE_MODEL,
+    usage: usageOf(body),
+  });
+}
+
 // The board a game sends. Every visitor gets the measured default; a page served from localhost may name one of
 // the other renderings, so a format can be tried in a real game before it is shipped to anyone. An unknown name
 // falls back rather than failing, and the live site cannot reach this at all.
-const renderBoard = (format, board, label = "Board") =>
+const renderBoard = (format, board, label = "Board", info = {}) =>
   isDevOrigin() && typeof format === "string" && Object.hasOwn(BOARD_FORMATS, format)
-    ? BOARD_FORMATS[format](board)
+    ? BOARD_FORMATS[format](board, info)
     : formatBoard(board, label);
 
 // Client-supplied free text goes into prompts only as clearly-labelled user content, printable ASCII, length-capped.
@@ -320,7 +421,7 @@ ${input.pace === "few"
       },
     },
     content({ board, mines, minesLeft, maxMoves, note, lessons, format }) {
-      const text = renderBoard(format, board);
+      const text = renderBoard(format, board, "Board", { mines, minesLeft });
       if (!text) return null;
       const notes = (Array.isArray(lessons) ? lessons : []).filter((l) => typeof l === "string").slice(0, 8).map((l) => cleanText(l, 240)).filter(Boolean);
       const notebook = notes.length
@@ -382,7 +483,7 @@ Think it through, then reply only by calling the review_moves tool.`,
       },
     },
     content({ board, mines, minesLeft, proposed, format }) {
-      const text = renderBoard(format, board);
+      const text = renderBoard(format, board, "Board", { mines, minesLeft });
       if (!text) return null;
       const moves = validMoves(proposed?.moves, board.length, board[0].length).slice(0, MS_MAX_MOVES);
       if (!moves.length) return null;
@@ -519,11 +620,11 @@ Think it through, then reply only by calling the report tool.`,
       required: ["cells"],
     },
   },
-  content({ board, probes, format }) {
+  content({ board, probes, format, mines, minesLeft }) {
     if (!isDevOrigin()) return null; // measurement surface: not reachable from the live site
     if (!validBoard(board)) return null;
     const render = BOARD_FORMATS[typeof format === "string" && Object.hasOwn(BOARD_FORMATS, format) ? format : "current"];
-    const text = render(board);
+    const text = render(board, { mines, minesLeft });
     if (!text) return null;
     const list = (Array.isArray(probes) ? probes : []).slice(0, 12)
       .filter((p) => Number.isInteger(p?.row) && Number.isInteger(p?.col));
@@ -717,6 +818,9 @@ export const handler = async (event) => {
 
   const why = limited(ip);
   if (why) return reply(429, { error: why });
+
+  // A different upstream with a different shape, so it is a route of its own rather than an entry in GAMES.
+  if (input.game === "minesweeper-odds") return handleOdds(input);
 
   const gameName = input.game ?? "doom";
   const game = typeof gameName === "string" && Object.hasOwn(GAMES, gameName) ? GAMES[gameName] : null;
