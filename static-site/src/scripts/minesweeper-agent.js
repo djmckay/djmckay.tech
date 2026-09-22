@@ -93,8 +93,14 @@
         cls.push("open");
         if (cell.mine) { cls.push("mine"); text = "*"; }
         else if (cell.n) { cls.push(`n${cell.n}`); text = cell.n; }
-      } else if (cell.flag) { cls.push("flag"); text = "F"; }
-      else if (game.status === "lost" && cell.mine) { cls.push("mine"); text = "*"; }
+      } else if (cell.flag) {
+        // Once the game is over the flags can be marked right or wrong, which is worth seeing: a flag is only
+        // ever a guess, and a wrong one is the mistake that kept a cell shut for the rest of the game.
+        const settled = game.status === "lost" || game.status === "won";
+        cls.push("flag");
+        if (settled && !cell.mine) { cls.push("wrong-flag"); text = "✗"; } // a flag on a cell that was safe
+        else { if (settled) cls.push("right-flag"); text = "F"; }
+      } else if (game.status === "lost" && cell.mine) { cls.push("mine"); text = "*"; }
       if (hl.has(r * lvl.cols + c)) cls.push("hl");
       el.className = cls.join(" ");
       el.dataset.r = r;
@@ -422,6 +428,19 @@
     return { moves: guesses.slice(0, 1), thought: proposal.thought };
   }
 
+  // How the flags turned out, now that the board can say. A wrong flag never ends a game by itself, so it goes
+  // unnoticed - but it shuts a safe cell for the rest of the run and every number around it is then counted
+  // against a mine that was never there, which is how one mistake becomes a wrong deduction much later.
+  function logFlags() {
+    const flagged = game.cells.flat().filter((c) => c.flag && !c.open);
+    if (!flagged.length) return;
+    const wrong = flagged.filter((c) => !c.mine).length;
+    if (!wrong) { log(`All ${flagged.length} flags were on mines.`, "verify"); return; }
+    const where = game.cells.flatMap((row, r) => row.map((c, col) => (c.flag && !c.open && !c.mine ? `(${r},${col})` : null)))
+      .filter(Boolean).slice(0, 6).join(" ");
+    log(`${wrong} of ${flagged.length} flags were wrong, on cells that held no mine: ${where}${wrong > 6 ? " ..." : ""}. Each one shut a safe cell and skewed every number beside it.`, "verify-bad");
+  }
+
   // After a loss, ask Claude for one reusable lesson and add it to the notebook.
   async function reflect(fatal, mine) {
     log("Writing a lesson from the loss...");
@@ -529,9 +548,11 @@
     stop();
     if (game.status === "won") {
       log("Cleared the board.");
+      logFlags();
       recordResult("won");
     } else if (game.status === "lost") {
       log("Hit a mine.");
+      logFlags();
       if (fatal) log(...judgeLoss(fatal));
       if (fatal && mine === epoch) await reflect(fatal, mine);
       if (mine === epoch) recordResult("lost");
