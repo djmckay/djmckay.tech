@@ -5,6 +5,9 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const MOVE_DELAY_MS = 450;
   const STUCK_LIMIT = 3; // consecutive turns with no valid move before giving up
+  // How many turns the player gets to find something provable before its best guess is played. Tied to
+  // STUCK_LIMIT so the guess always lands on the turn a run of empty turns would otherwise end the game.
+  const GUESS_AFTER = STUCK_LIMIT;
   const MAX_VERIFY_ROUNDS = 2; // verifier checks per turn: the proposal, then one revision
 
   // rows x cols; cellPx/fontRem size the board; maxMoves is the per-turn allowance sent to the model;
@@ -44,6 +47,7 @@
   const verifierConfig = () => ({ model: settings.vModel, effort: settings.vEffort });
 
   let game, running, calls, checks, note, stuck;
+  let noProof; // consecutive turns where the referee could prove nothing the player proposed
   let gameSettings, activeMs, runStart, humanMoved, recorded, refStats; // for the anonymous live-results report
   let degraded; // turns the proxy answered without thinking, because thinking ran out of room or time
   let degradedChecks; // of those, the ones that were verifier checks rather than the player's own move
@@ -306,6 +310,12 @@
   async function verifyMoves(first, mine) {
     let proposal = first;
     let annotated = [];
+    // A refusal from an earlier round, kept so a later one cannot undo it. The board does not change between
+    // rounds, so a move that goes from unproven to approved has not been settled by new evidence: the player
+    // has simply restated its case and won the argument. That lost a game on turn 14, on a cell the referee
+    // had correctly called unproven and the solver later priced at 15% mine.
+    const refused = new Map();
+    const at = (m) => `${m.action} ${m.row},${m.col}`;
     for (let round = 1; round <= MAX_VERIFY_ROUNDS; round++) {
       let review;
       $("ms-status").textContent = "Verifier is checking...";
@@ -323,10 +333,23 @@
       addUsage(review.usage);
       showCost();
       const byIndex = new Map(review.verdicts.map((v) => [v.index, v]));
+      let overturned = 0;
       annotated = proposal.moves.map((m, i) => {
         const v = byIndex.get(i);
-        return { ...m, verdict: v ? v.verdict : "unproven", reason: v ? v.reason : "no verdict returned" };
+        let verdict = v ? v.verdict : "unproven";
+        let reason = v ? v.reason : "no verdict returned";
+        const earlier = refused.get(at(m));
+        if (earlier && verdict === "approve") {
+          overturned++;
+          verdict = earlier.verdict;
+          reason = `${earlier.reason} (approved on review, but the board has not changed since it could not be proved)`;
+        }
+        return { ...m, verdict, reason };
       });
+      for (const m of annotated) if (m.verdict !== "approve") refused.set(at(m), { verdict: m.verdict, reason: m.reason });
+      if (overturned) {
+        log(`The verifier changed its mind about ${overturned} move${overturned === 1 ? "" : "s"} it had already refused to prove. Nothing on the board changed, so the earlier refusal stands.`, "verify-warn");
+      }
       for (const m of annotated) {
         const cell = game.cells[m.row]?.[m.col];
         if (!cell || cell.open) continue;
@@ -348,7 +371,7 @@
         .join("; ");
       $("ms-status").textContent = "Claude is revising...";
       proposal = await decide(
-        `A referee reviewed your last proposal and objected to: ${objections}. Revise your moves: keep what was approved, replace the rest with moves you can prove, or make your best guess if nothing is provable.`,
+        `A referee reviewed your last proposal and objected to: ${objections}. Revise your moves: keep what was approved and replace the rest with moves you can prove, looking elsewhere on the board if this area is exhausted. Do not swap in a guess instead: a move the referee cannot prove will not be played, and restating an objected move will not change its verdict.`,
       );
       if (mine !== epoch) return null;
       calls++;
@@ -363,13 +386,11 @@
     const live = annotated.filter(changes);
     const proven = live.filter((m) => m.verdict === "approve");
     if (proven.length) {
+      noProof = 0;
       const held = live.length - proven.length;
       if (held) log(`Holding back ${held} move${held === 1 ? "" : "s"} the verifier could not prove, and playing the ${proven.length} it could.`, "verify-warn");
       return { moves: proven, thought: proposal.thought };
     }
-    // Nothing could be proved, so this position genuinely needs a guess. Claude's own first choice is played
-    // rather than one the page picks: choosing the cell here would make the page the player. Only one goes in,
-    // because every later move in the proposal was reasoned from the guess being right.
     const guesses = live.filter((m) => m.verdict !== "wrong");
     if (!guesses.length) {
       const note = live.length
@@ -377,7 +398,17 @@
         : "Every move you proposed had already been made: those cells are open or already flagged.";
       return { moves: [], thought: proposal.thought, note };
     }
-    log(`Nothing this turn could be proved, so Claude is guessing with ${describe(guesses[0])}.`, "verify-warn");
+    // Nothing here could be proved, which is not the same as nothing on the board being provable: it only says
+    // this proposal is exhausted. A game was lost gambling on a 50/50 while 28 cells elsewhere were provably
+    // safe, so the player is sent back to look at the rest of the board first. Only when it comes back with
+    // nothing provable several turns running is the position treated as one that really needs a guess.
+    noProof++;
+    if (noProof < GUESS_AFTER) {
+      return { moves: [], thought: proposal.thought,
+        note: `Nothing you proposed could be proved from the board. A provable move may still exist somewhere else, so look at the rest of the board before guessing. If you come back with nothing provable ${GUESS_AFTER - noProof} more time(s), your best guess will be played.` };
+    }
+    noProof = 0;
+    log(`Nothing could be proved on ${GUESS_AFTER} turns running, so this position needs a guess: Claude is playing ${describe(guesses[0])}.`, "verify-warn");
     return { moves: guesses.slice(0, 1), thought: proposal.thought };
   }
 
@@ -526,6 +557,7 @@
     degradedChecks = 0;
     note = "none";
     stuck = 0;
+    noProof = 0;
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     const lvl = level();
     game = Minesweeper.create(lvl.rows, lvl.cols, lvl.mines);
