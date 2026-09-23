@@ -5,9 +5,6 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const MOVE_DELAY_MS = 450;
   const STUCK_LIMIT = 3; // consecutive turns with no valid move before giving up
-  // How many turns the player gets to find something provable before its best guess is played. Tied to
-  // STUCK_LIMIT so the guess always lands on the turn a run of empty turns would otherwise end the game.
-  const GUESS_AFTER = STUCK_LIMIT;
   const MAX_VERIFY_ROUNDS = 2; // verifier checks per turn: the proposal, then one revision
 
   // rows x cols; cellPx/fontRem size the board; maxMoves is the per-turn allowance sent to the model;
@@ -47,7 +44,6 @@
   const verifierConfig = () => ({ model: settings.vModel, effort: settings.vEffort });
 
   let game, running, calls, checks, note, stuck;
-  let noProof; // consecutive turns where the referee could prove nothing the player proposed
   // Moves the referee has refused on the board as it currently stands, cleared the moment anything is played.
   // A turn that applies nothing leaves the board untouched, so its refusals still hold next turn.
   let refused;
@@ -322,9 +318,18 @@
   // turn 6: the referee twice refused to prove a reveal, said exactly why (a number had been misread), and the
   // move went in anyway onto a cell that was a 48% mine. A mine ends the game and a held move costs only a turn,
   // so the trade is one-sided.
+  // A move only counts if it would change the board: an open cell can be neither revealed nor flagged, and a
+  // flagged one is refused by reveal and merely toggled back off by flag. Without this a turn of approved
+  // no-ops would spend a call, move nothing, and hold back the guess the board actually needs for ever.
+  const changes = (m) => { const cell = game.cells[m.row]?.[m.col]; return !!cell && !cell.open && !cell.flag; };
+
   async function verifyMoves(first, mine) {
     let proposal = first;
     let annotated = [];
+    // Something playable seen in any round, kept in case the last one leaves nothing. A revision replaces the
+    // proposal wholesale, so a perfectly usable guess can be swapped for an already-revealed cell and the turn
+    // then has nothing at all to play - which is how a game ended stuck on a board with moves left in it.
+    let fallback = null;
     // Refusals are kept so a later verdict cannot undo one. Nothing the referee learns between rounds comes
     // from the board, so a move going from unproven to approved has been argued down rather than settled: that
     // lost a game on turn 14, on a cell the solver later priced at 15% mine. The same holds across turns while
@@ -363,6 +368,7 @@
         return { ...m, verdict, reason };
       });
       for (const m of annotated) if (m.verdict !== "approve") refused.set(at(m), { verdict: m.verdict, reason: m.reason });
+      fallback ??= annotated.find((m) => changes(m) && m.verdict !== "wrong") ?? null;
       if (overturned) {
         log(`The verifier changed its mind about ${overturned} move${overturned === 1 ? "" : "s"} it had already refused to prove. Nothing on the board changed, so the earlier refusal stands.`, "verify-warn");
       }
@@ -395,37 +401,34 @@
       showCost();
       log(`Revised: ${proposal.thought}`);
     }
-    // A move only counts if it would change the board: an open cell can be neither revealed nor flagged, and a
-    // flagged one is refused by reveal and merely toggled back off by flag. Without this a turn of approved
-    // no-ops would spend a call, move nothing, and hold back the guess the board actually needs for ever.
-    const changes = (m) => { const cell = game.cells[m.row]?.[m.col]; return !!cell && !cell.open && !cell.flag; };
     const live = annotated.filter(changes);
     const proven = live.filter((m) => m.verdict === "approve");
     if (proven.length) {
-      noProof = 0;
-      const held = live.length - proven.length;
+        const held = live.length - proven.length;
       if (held) log(`Holding back ${held} move${held === 1 ? "" : "s"} the verifier could not prove, and playing the ${proven.length} it could.`, "verify-warn");
       return { moves: proven, thought: proposal.thought };
     }
-    const guesses = live.filter((m) => m.verdict !== "wrong");
-    if (!guesses.length) {
-      const note = live.length
-        ? "The referee rejected every move you proposed."
-        : "Every move you proposed had already been made: those cells are open or already flagged.";
-      return { moves: [], thought: proposal.thought, note };
-    }
     // Nothing here could be proved, which is not the same as nothing on the board being provable: it only says
     // this proposal is exhausted. A game was lost gambling on a 50/50 while 28 cells elsewhere were provably
-    // safe, so the player is sent back to look at the rest of the board first. Only when it comes back with
-    // nothing provable several turns running is the position treated as one that really needs a guess.
-    noProof++;
-    if (noProof < GUESS_AFTER) {
+    // safe, so the player is sent back to look at the rest of the board first.
+    const candidate = live.find((m) => m.verdict !== "wrong") ?? fallback;
+    if (!candidate) {
       return { moves: [], thought: proposal.thought,
-        note: `Nothing you proposed could be proved from the board. A provable move may still exist somewhere else, so look at the rest of the board before guessing. If you come back with nothing provable ${GUESS_AFTER - noProof} more time(s), your best guess will be played.` };
+        note: live.length
+          ? "The referee rejected every move you proposed."
+          : "Every move you proposed had already been made: those cells are open or already flagged." };
     }
-    noProof = 0;
-    log(`Nothing could be proved on ${GUESS_AFTER} turns running, so this position needs a guess: Claude is playing ${describe(guesses[0])}.`, "verify-warn");
-    return { moves: guesses.slice(0, 1), thought: proposal.thought };
+    // But it cannot be sent back for ever. `stuck` is what ends a game, so the guess is timed against that and
+    // not against a counter of its own: one more empty turn now would end it, and ending with playable moves
+    // left on the board is worse than playing an unproven one. An earlier version counted only the turns the
+    // referee judged, missed the turns that proposed already-opened cells, and let a game die at 192 cells
+    // with a guess it was willing to make.
+    if (stuck < STUCK_LIMIT - 1) {
+      return { moves: [], thought: proposal.thought,
+        note: `Nothing you proposed could be proved from the board. A provable move may still exist somewhere else, so look at the rest of the board before guessing. Come back with nothing again and your best guess will be played.` };
+    }
+    log(`Nothing could be proved and the game is one empty turn from ending, so this position needs a guess: Claude is playing ${describe(candidate)}.`, "verify-warn");
+    return { moves: [candidate], thought: proposal.thought };
   }
 
   // How the flags turned out, now that the board can say. A wrong flag never ends a game by itself, so it goes
@@ -592,7 +595,6 @@
     degradedChecks = 0;
     note = "none";
     stuck = 0;
-    noProof = 0;
     refused = new Map();
     Object.assign(spent, { usd: 0, tokens: 0, priced: true });
     const lvl = level();
