@@ -202,6 +202,35 @@ the review call returns one general lesson. The page keeps up to 8 lessons in th
 treats them as untrusted text: strings only, printable ASCII, 240 characters each, at most 8, placed in the
 user message (never the system prompt).
 
+## Tests
+
+```bash
+node test/run.mjs            # every suite
+node test/run.mjs ts board   # just those
+```
+
+Nothing here reaches the network or AWS. `test/gen.mjs` rewrites `index.mjs` with the two SDK imports stubbed
+and copies the modules it imports alongside, and each suite scripts its own `fetch` with the replies it wants.
+So the suites run offline, cost nothing, need no key, and can assert on the exact request that *would* have
+gone to Anthropic or TypeSafe - which is the only way to check a prompt, since the reply cannot be.
+
+The runner exits non-zero if a check fails **or if a suite throws**, because a suite that dies partway has not
+tested the things after the throw and should not read as a pass.
+
+| Suite | What it holds to |
+|---|---|
+| `board` | the rendering each game sends, the measurement formats, and that only a localhost origin may name one |
+| `budget` | the token ceilings, and the retry without thinking when a reply is cut off before the tool call |
+| `d` | the Doom game: actions, images, config, and the shape of a turn |
+| `deadline` | a thinking call that runs too long is dropped and answered quickly instead |
+| `deg` | the quick-answer counters on a live result: validation, storage, and what the results page shows |
+| `fable` | the localhost-only model, which always thinks and rejects a forced tool call |
+| `nav` | `doom-nav`: the prompt's helper flags, the notes field, and every client-supplied string being cleaned |
+| `solver` | the loss analyser, on boards small enough to check by hand |
+| `ts` | the TypeSafe route: what goes up, what comes back, their error codes, and that no key reaches a reply |
+
+`test/h.mjs`, `test/results.mjs` and `test/typesafe.mjs` are written by the generator and are not in git.
+
 ## Deploy
 
 Requires the AWS SAM CLI and credentials for account 795091308067 (us-east-1).
