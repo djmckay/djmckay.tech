@@ -11,6 +11,10 @@ Parameters:
     Type: String
     Default: djmckay/typesafe-ai-api-key
     Description: Name of a Secrets Manager secret holding the TypeSafe API key. Pass an empty string to turn the odds route off and grant it no access.
+  VisitorTableName:
+    Type: String
+    Default: DJMCKAY_TECH
+    Description: Existing DynamoDB table holding the site's visitor count. Not created here - it predates this stack and holds the count.
   AllowedOrigin:
     Type: String
     Default: https://djmckay.tech|https://www.djmckay.tech
@@ -110,10 +114,38 @@ Resources:
       FunctionUrlConfig:
         AuthType: NONE
 
+  # Its own function, not a route on the proxy: that one has reserved concurrency 3 and this fires on every page
+  # load, so a visitor arriving mid-game could have taken a slot a move needed. A 429 ends a Minesweeper run.
+  VisitorCounterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: counter.handler
+      Runtime: nodejs20.x
+      Architectures: [arm64]
+      MemorySize: 128
+      Timeout: 10
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${VisitorTableName}
+      Environment:
+        Variables:
+          VISITOR_TABLE: !Ref VisitorTableName
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          PER_IP_PER_MIN: 10
+      FunctionUrlConfig:
+        AuthType: NONE   # CORS is set by the handler, which answers an allowlist rather than every origin
+
 Outputs:
   ResultsTableName:
     Description: DynamoDB table holding per-setup Minesweeper counters (kept if the stack is deleted)
     Value: !Ref ResultsTable
+  VisitorCounterUrl:
+    Description: Paste into counterUrl in static-site/src/_data/site.json
+    Value: !GetAtt VisitorCounterFunctionUrl.FunctionUrl
   FunctionUrl:
     Description: Paste into proxyUrl in static-site/src/doom.njk
     Value: !GetAtt DoomProxyFunctionUrl.FunctionUrl

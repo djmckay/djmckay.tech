@@ -4,5 +4,6 @@
   "header": "",
   "about": "",
   "avatar": "https://s3.us-east-2.amazonaws.com/djmckay-tech/IMG_0249.jpg",
-  "avatarByLine": "Technologist"
+  "avatarByLine": "Technologist",
+  "counterUrl": "https://x7t3h6bid3vv6pxhzdg6fuk2b40ybaib.lambda-url.us-east-1.on.aws/"
 }

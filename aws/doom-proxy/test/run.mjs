@@ -10,7 +10,7 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
-const SKIP = new Set(["run.mjs", "gen.mjs", "h.mjs", "results.mjs", "typesafe.mjs"]); // the runner and its copies
+const SKIP = new Set(["run.mjs", "gen.mjs", "h.mjs", "c.mjs", "results.mjs", "typesafe.mjs"]); // the runner, and the handlers it generates
 
 execFileSync(process.execPath, ["gen.mjs"], { cwd: here, stdio: "pipe" });
 
