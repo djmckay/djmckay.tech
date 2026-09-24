@@ -13,4 +13,12 @@ if (src === before || /@aws-sdk/.test(src.replace(/\/\/.*$/gm, ""))) throw new E
 writeFileSync(new URL("./h.mjs", import.meta.url), src);
 copyFileSync(`${dir}/results.mjs`, new URL("./results.mjs", import.meta.url));
 copyFileSync(`${dir}/typesafe.mjs`, new URL("./typesafe.mjs", import.meta.url)); // h.mjs imports it; ts.mjs tests it
+
+// The visitor counter, stubbed the same way: it is a separate function with its own handler.
+let counter = readFileSync(`${dir}/counter.mjs`, "utf8");
+const cBefore = counter;
+counter = counter.replace(/^import \{ DynamoDBClient, UpdateItemCommand \} from .*$/m,
+  'class DynamoDBClient { send(c){ return globalThis.__ddbSend(c) } } class UpdateItemCommand { constructor(i){ this.input=i; this.kind="update" } }');
+if (counter === cBefore || /@aws-sdk/.test(counter.replace(/\/\/.*$/gm, ""))) throw new Error("counter SDK import was not stubbed");
+writeFileSync(new URL("./c.mjs", import.meta.url), counter);
 console.log("h.mjs regenerated");

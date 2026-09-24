@@ -7,7 +7,10 @@
           <li class="list-inline-item">&sdot;</li>
           <li class="list-inline-item"><a href="mailto:{{ profile.email }}?subject=Info Request">Send Email</a></li>
         </ul>
-        <p class="text-muted small mb-4 mb-lg-0">&copy; {{ site.brand }} {{ "" | year }}. All Rights Reserved.</p>
+        <p class="text-muted small mb-1">&copy; {{ site.brand }} {{ "" | year }}. All Rights Reserved.</p>
+        {# Hidden until the count actually arrives, so a failed call shows nothing rather than an empty counter. #}
+        <p class="text-muted small mb-4 mb-lg-0" id="visitors" hidden
+           data-counter="{{ site.counterUrl }}">Visitors: <span id="visitor-count"></span></p>
       </div>
       <div class="col-lg-6 h-100 text-center text-lg-right my-auto">
         {% include "socialList.njk" %}
