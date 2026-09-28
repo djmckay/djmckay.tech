@@ -243,4 +243,43 @@ reset(); replies=[answers({r0c0:0.3})];
 await post({game:"minesweeper-odds",board:["#####","##1F#","##..#","#####","#####"],mines:5,minesLeft:4,wording:"forced"});
 ok("and it follows the named wording too", /Every arrangement/.test(sent[0].body.questions.away_from_numbers.criteria.true), JSON.stringify(sent[0].body.questions.away_from_numbers.criteria));
 
+// ---- saying what the game is
+// The state carried the board's numbers and never said what could be concluded from them, which a worked example
+// of this API does do for its subject. Off by default so the effect can be measured rather than assumed.
+reset(); replies=[answers({r0c0:0.3})];
+r=await odds();
+ok("no definition is sent unless it is asked for", !("definition" in sent[0].body.state) && r.body.definition===false, JSON.stringify(Object.keys(sent[0].body.state)));
+
+reset(); replies=[answers({r0c0:0.3})];
+r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,withDefinition:true});
+let def=sent[0].body.state.definition;
+ok("asked for, the state says what the game is", typeof def==="string" && def.length>200, String(def).slice(0,50));
+ok("and the reply says it was sent", r.body.definition===true, String(r.body.definition));
+ok("it defines an arrangement and what makes one consistent", /arrangement/.test(def) && /consistent/.test(def), "");
+ok("it names the mine total as a constraint, not just the numbers", /no more and no fewer|mine total|still unaccounted for is exactly/.test(def), "");
+ok("it says what determined means, in both directions", /certainly empty/.test(def) && /certainly a mine/.test(def), "");
+ok("it says a flag constrains nothing", /flag/i.test(def) && /may be wrong/.test(def), "");
+ok("it never mentions a mine the player cannot see", !/isMine|hidden truth|actual mine/.test(def), "");
+
+reset(); replies=[answers({r0c0:0.3})];
+await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,withDefinition:true,shape:"full"});
+ok("the full shape carries it too, beside the rules rather than folded in",
+  typeof sent[0].body.state.game.definition==="string" && Array.isArray(sent[0].body.state.game.rules), "");
+
+for (const bad of ["yes", 1, {}, null]) {
+  reset(); replies=[answers({r0c0:0.3})];
+  r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,withDefinition:bad});
+  ok(`withDefinition of ${JSON.stringify(bad)} is not treated as true`, !("definition" in sent[0].body.state) && r.body.definition===false, String(r.body.definition));
+}
+
+// The third wording puts the definition in the criteria, where the example that prompted it puts it.
+reset(); replies=[answers({r0c0:0.3})];
+await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:"defined"});
+q=sent[0].body.questions.r0c0;
+ok("the defined wording asks a short question", q.instructions.length<80 && /row 0, column 0/.test(q.instructions), q.instructions);
+ok("and carries the substance in the criteria instead", q.criteria.true.length>100 && q.criteria.false.length>100, `${q.criteria.true.length}/${q.criteria.false.length}`);
+ok("its false criterion gives the ways a cell is ruled out, not just a negation",
+  /for example|already has all of its mines|too large|needed elsewhere/.test(q.criteria.false), q.criteria.false.slice(0,60));
+ok("and it still leaves the middle of the range meaning something", /share of them that do/.test(q.criteria.true), q.criteria.true.slice(-60));
+
 console.log(`\n${pass} passed, ${fail} failed`);

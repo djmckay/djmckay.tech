@@ -235,6 +235,7 @@ async function handleOdds(input) {
       // Allowlisted rather than passed through: the whole reason questions are built here is that the client
       // must not be able to change what is asked, and a free-text wording would hand that back.
       wording: Object.hasOwn(WORDINGS, input.wording) ? input.wording : DEFAULT_WORDING,
+      withDefinition: input.withDefinition === true,
       meta: { difficulty: typeof input.difficulty === "string" ? cleanText(input.difficulty, 24) : null } });
   // No revealed number means no constraints, so every hidden cell is identical and there is nothing to choose
   // between. The engine also places mines after the first reveal, so the opening move is safe whatever it is:
@@ -281,6 +282,7 @@ async function handleOdds(input) {
     frontier: whole,
     truncated: built.cells.length < whole,
     wording: built.wording, // echoed so a measurement cannot silently grade the wrong question
+    definition: built.definition,
     model: typeof body.model === "string" ? body.model : TYPESAFE_MODEL,
     usage: usageOf(body),
   });
