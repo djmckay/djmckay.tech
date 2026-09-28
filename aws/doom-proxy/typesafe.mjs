@@ -167,30 +167,68 @@ export function buildPlayQuestions(cells) {
   };
 }
 
+// How the per-cell question is put. Two wordings, because the first one measured badly in a way that was my
+// fault rather than the model's, and the fix is worth keeping the comparison for.
+//
+// `forced` was first. Its ends are "every arrangement puts a mine here" and "no arrangement does" - which are
+// the two provable cases and nothing else. For a cell that is a mine in a third of the consistent arrangements
+// both statements are false, so the entire middle of the range, the only part a probability is for, was left
+// undefined. Measured over 244 Expert frontier cells it answered in a 0.20-wide band, got none of 116 provable
+// cells within 0.1, and once picked a certain mine as the safest cell on the board.
+//
+// `fraction` asks the question the solver actually answers: across the arrangements consistent with the numbers,
+// in how many does this cell hold a mine? That is defined at every value in [0,1], its ends are ordinary
+// statements about the cell rather than about all arrangements at once, and 1 and 0 fall out of it for the
+// provable cases instead of needing their own wording.
+export const WORDINGS = {
+  forced: {
+    ask: (row, col) => `Is the hidden cell at row ${row}, column ${col} a mine?`,
+    criteria: {
+      true: "Every arrangement of the remaining mines that satisfies the numbers puts a mine in this cell.",
+      false: "No arrangement of the remaining mines that satisfies the numbers puts a mine in this cell.",
+    },
+    away: (count) => `Is a hidden cell that no revealed number touches a mine? There are ${count} such cells and no constraint tells them apart, so one answer covers all of them.`,
+    awayCriteria: {
+      true: "Every arrangement of the remaining mines that satisfies the numbers puts a mine in such a cell.",
+      false: "No arrangement of the remaining mines that satisfies the numbers puts a mine in such a cell.",
+    },
+  },
+  fraction: {
+    ask: (row, col) => `Consider every way the mines that are still unaccounted for could be placed so that all the revealed numbers are correct. In what fraction of those arrangements does the hidden cell at row ${row}, column ${col} hold a mine? Answer 1 if it holds a mine in all of them, 0 if in none of them, and the fraction itself otherwise.`,
+    criteria: {
+      true: "This cell holds a mine.",
+      false: "This cell is empty.",
+    },
+    away: (count) => `Consider every way the mines that are still unaccounted for could be placed so that all the revealed numbers are correct. In what fraction of those arrangements does a hidden cell that no revealed number touches hold a mine? There are ${count} such cells and no constraint tells them apart, so one answer covers all of them.`,
+    awayCriteria: {
+      true: "Such a cell holds a mine.",
+      false: "Such a cell is empty.",
+    },
+  },
+};
+export const DEFAULT_WORDING = "fraction";
+
 // The measuring shape: one question per cell, which grows with the frontier but is the only shape whose answers
 // can be checked against the solver cell by cell.
 //
 // "Is it a mine" is a noul, because a probability is what the game ranks by and what the solver can be compared
-// with. Its criteria describe the two ends only - they must not mention what is forced or what is more likely
-// than not, or a probability becomes a threshold and the calibration being measured goes with it.
+// with.
 //
 // "Can it be proved" is a different question, about the evidence rather than the cell, and its three answers are
 // mutually exclusive, which is what a choice needs. Mine/safe/unknown as one choice would not be: unknown is a
 // fact about what is known, so a 50/50 cell would have two defensible answers. Kept separate, this is the
 // referee's job expressed as a type, and proven against merely probable is the distinction that lost three
 // Expert games.
-export function buildQuestions(cells, { withProof = false, withBest = false, away = null } = {}) {
+export function buildQuestions(cells, { withProof = false, withBest = false, away = null, wording = DEFAULT_WORDING } = {}) {
   const questions = {};
+  const say = WORDINGS[wording] ?? WORDINGS[DEFAULT_WORDING];
   // The untouched region needs one question between all of its cells: they are identical, so a single answer
   // is the answer for every one of them, and it is checkable against the solver's own figure for a free cell.
   if (away) {
     questions[AWAY_KEY] = {
       type: "noul",
-      instructions: `Is a hidden cell that no revealed number touches a mine? There are ${away.count} such cells and no constraint tells them apart, so one answer covers all of them.`,
-      criteria: {
-        true: "Every arrangement of the remaining mines that satisfies the numbers puts a mine in such a cell.",
-        false: "No arrangement of the remaining mines that satisfies the numbers puts a mine in such a cell.",
-      },
+      instructions: say.away(away.count),
+      criteria: say.awayCriteria,
     };
   }
   // The turn's actual decision, as one question however big the board: pick a cell. The per-cell nouls are
@@ -211,11 +249,8 @@ export function buildQuestions(cells, { withProof = false, withBest = false, awa
   for (const { row, col } of cells) {
     questions[key(row, col)] = {
       type: "noul",
-      instructions: `Is the hidden cell at row ${row}, column ${col} a mine?`,
-      criteria: {
-        true: "Every arrangement of the remaining mines that satisfies the numbers puts a mine in this cell.",
-        false: "No arrangement of the remaining mines that satisfies the numbers puts a mine in this cell.",
-      },
+      instructions: say.ask(row, col),
+      criteria: say.criteria,
     };
     if (!withProof) continue;
     questions[proofKey(row, col)] = {
@@ -232,7 +267,8 @@ export function buildQuestions(cells, { withProof = false, withBest = false, awa
 }
 
 export function buildRequest(rows, mines, minesLeft, model = "jev-latest", opts = {}) {
-  const { withProof = false, withBest = false, mode = "measure", shape = "constraints", meta = {} } = opts;
+  const { withProof = false, withBest = false, mode = "measure", shape = "constraints", meta = {},
+          wording = DEFAULT_WORDING } = opts;
   // Two ways of saying the same thing: the board cell by cell as the game holds it, or only the constraints
   // the numbers impose. Which one a model does better with is a question to be measured, not assumed.
   const state = () => (shape === "full" ? buildFullState(rows, mines, minesLeft, meta) : buildState(rows, mines, minesLeft));
@@ -240,7 +276,7 @@ export function buildRequest(rows, mines, minesLeft, model = "jev-latest", opts 
   if (!all.length) return null;
   if (mode === "play") {
     const cells = candidates(rows);
-    return { body: { state: state(), model, questions: buildPlayQuestions(cells) }, cells, away: null };
+    return { body: { state: state(), model, questions: buildPlayQuestions(cells) }, cells, away: null, wording: null };
   }
   const awayCells = untouched(rows);
   const away = awayCells.length ? { row: awayCells[0].row, col: awayCells[0].col, count: awayCells.length } : null;
@@ -251,9 +287,10 @@ export function buildRequest(rows, mines, minesLeft, model = "jev-latest", opts 
   const cells = all.slice(0, Math.floor(room / perCell));
   return {
     body: { state: state(), model,
-            questions: buildQuestions(cells, { withProof, withBest, away }) },
+            questions: buildQuestions(cells, { withProof, withBest, away, wording }) },
     cells,
     away,
+    wording: Object.hasOwn(WORDINGS, wording) ? wording : DEFAULT_WORDING,
   };
 }
 
