@@ -8,7 +8,7 @@ import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-sec
 
 import { DynamoDBClient, UpdateItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb"; // bundled in the nodejs20.x runtime
 import { parseResult, updateInput, queryInput, shapeStats } from "./results.mjs";
-import { buildRequest, parseAnswers, usageOf, frontier, buildFullState } from "./typesafe.mjs";
+import { buildRequest, parseAnswers, usageOf, frontier, buildFullState, WORDINGS, DEFAULT_WORDING } from "./typesafe.mjs";
 
 const secrets = new SecretsManagerClient({});
 const ddb = new DynamoDBClient({});
@@ -232,6 +232,10 @@ async function handleOdds(input) {
     { withProof: input.withProof === true, withBest: input.withBest === true,
       mode: input.mode === "play" ? "play" : "measure",
       shape: input.shape === "full" ? "full" : "constraints",
+      // Allowlisted rather than passed through: the whole reason questions are built here is that the client
+      // must not be able to change what is asked, and a free-text wording would hand that back.
+      wording: Object.hasOwn(WORDINGS, input.wording) ? input.wording : DEFAULT_WORDING,
+      withDefinition: input.withDefinition === true,
       meta: { difficulty: typeof input.difficulty === "string" ? cleanText(input.difficulty, 24) : null } });
   // No revealed number means no constraints, so every hidden cell is identical and there is nothing to choose
   // between. The engine also places mines after the first reveal, so the opening move is safe whatever it is:
@@ -277,6 +281,8 @@ async function handleOdds(input) {
     asked: built.cells.length,
     frontier: whole,
     truncated: built.cells.length < whole,
+    wording: built.wording, // echoed so a measurement cannot silently grade the wrong question
+    definition: built.definition,
     model: typeof body.model === "string" ? body.model : TYPESAFE_MODEL,
     usage: usageOf(body),
   });
