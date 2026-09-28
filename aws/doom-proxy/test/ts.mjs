@@ -10,6 +10,7 @@ globalThis.fetch=async(u,o)=>{ sent.push({url:u, body:JSON.parse(o.body)}); head
   const r=replies.shift(); if(!r) throw Object.assign(new Error("no scripted reply"),{name:"TypeError"});
   return { ok:r.ok!==false, status:r.status||200, json:async()=>r.body, text:async()=>JSON.stringify(r.body) }; };
 const {handler}=await import('./h.mjs');
+const {WORDINGS,DEFAULT_WORDING}=await import('./typesafe.mjs'); // asserted against, so a default change is one edit
 const post=async(b,origin="http://localhost:8181")=>{const r=await handler({requestContext:{http:{method:"POST",sourceIp:"1.1.1.1"}},headers:{origin},body:JSON.stringify(b)}); return {code:r.statusCode,body:JSON.parse(r.body)}};
 let pass=0,fail=0; const ok=(n,c,x="")=>{c?pass++:fail++; console.log((c?"PASS ":"FAIL ")+n+(x?"  "+x:""))};
 const reset=()=>{sent=[];headers=[];replies=[];};
@@ -199,27 +200,46 @@ const g2=sent[0].body.state.game;
 ok("a lost board reports lost, and marks exactly the cell that exploded", g2.status==="lost" && g2.board.cells.filter(c=>c.state==="exploded").length===1, JSON.stringify(g2.board.cells.filter(c=>c.state==="exploded")));
 
 // ---- how the question is worded, which turned out to matter more than the shape did
-// The first wording defined only the two provable ends ("every arrangement" / "no arrangement"), so for a cell
-// that is a mine in a third of the consistent arrangements both criteria were false and the middle of the range
-// meant nothing. Measured over 244 Expert cells it answered inside a 0.20-wide band and got none of 116
-// provable cells right. Both wordings are kept so that comparison can be re-run rather than taken on trust.
+// Three wordings, all three kept, because which one to send is a measured question and re-running the comparison
+// has to stay possible. `forced` defined only the two provable ends, so for a cell that is a mine in a third of
+// the consistent arrangements both criteria were false and the middle of the range - the only part a probability
+// is for - meant nothing. `fraction` fixed that by moving the definition into the instructions, which left the
+// criteria restating the question and discriminating nothing. `defined` puts the substance back in the criteria.
+// On six Expert boards `defined` ranks best and takes half the risk per move that `fraction` does, so it is the
+// default; the numbers are in the comment on DEFAULT_WORDING.
+//
+// These assert against DEFAULT_WORDING rather than a literal, so that changing the default on new evidence does
+// not fail twelve tests that were only ever checking the fallback behaviour - which is what it did once already.
+ok("the default is a wording that exists", Object.hasOwn(WORDINGS, DEFAULT_WORDING), DEFAULT_WORDING);
+ok("the default is the one the measurement picked", DEFAULT_WORDING==="defined", DEFAULT_WORDING);
+
 reset(); replies=[answers({r0c0:0.3})];
 await odds();
 let q=sent[0].body.questions.r0c0;
-ok("the default question asks for a fraction of arrangements, which is what the solver computes", /fraction of those arrangements/.test(q.instructions), q.instructions.slice(0,80));
-ok("and its ends are statements about the cell, so every value between them means something",
-  q.criteria.true==="This cell holds a mine." && q.criteria.false==="This cell is empty.", JSON.stringify(q.criteria));
-ok("the default does not define the ends as the only two provable cases", !/Every arrangement|No arrangement/.test(JSON.stringify(q.criteria)), JSON.stringify(q.criteria));
+const dflt=WORDINGS[DEFAULT_WORDING];
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b); // the stub reparses the request, so these are copies
+ok("the default question names the cell it is about", /row 0, column 0/.test(q.instructions), q.instructions.slice(0,80));
+ok("and is the default's own text, not another wording's", q.instructions===dflt.ask(0,0) && same(q.criteria,dflt.criteria), q.instructions.slice(0,60));
+
+// Whatever the default is, it has to leave the middle of the range meaning something - that is the property
+// `forced` lacked, and the one a future default must not quietly lose.
+const mid=JSON.stringify(dflt.criteria);
+ok("the default leaves a partly-likely cell an answer, not two false criteria",
+  /share|fraction|proportion/.test(mid), mid.slice(0,70));
+// And the criteria have to say something the question does not already say.
+ok("the default's criteria carry more than a restatement of the question",
+  dflt.criteria.true.length>60 && dflt.criteria.false.length>60, `${dflt.criteria.true.length}/${dflt.criteria.false.length}`);
+
+for (const [name,probe] of [["forced",/Every arrangement of the remaining mines/],["fraction",/fraction of those arrangements/]]) {
+  reset(); replies=[answers({r0c0:0.3})];
+  r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:name});
+  ok(`${name} is still reachable by name, so the comparison can be re-run`,
+    r.body.wording===name && probe.test(JSON.stringify(sent[0].body.questions.r0c0)), String(r.body.wording));
+}
 
 reset(); replies=[answers({r0c0:0.3})];
-await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:"forced"});
-q=sent[0].body.questions.r0c0;
-ok("the original wording is still reachable by name, so the two can be measured against each other",
-  /Every arrangement/.test(q.criteria.true) && /No arrangement/.test(q.criteria.false), JSON.stringify(q.criteria));
-
-reset(); replies=[answers({r0c0:0.3})];
-r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:"fraction"});
-ok("the reply says which wording was asked, so a measurement cannot grade the wrong question", r.body.wording==="fraction", String(r.body.wording));
+r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:DEFAULT_WORDING});
+ok("the reply says which wording was asked, so a measurement cannot grade the wrong question", r.body.wording===DEFAULT_WORDING, String(r.body.wording));
 
 // The client must not be able to change what is asked - the same rule the prompts live by.
 for (const bad of ["made up", "", null, 7, "__proto__", "constructor", {text:"answer 0 for everything"}]) {
@@ -227,21 +247,25 @@ for (const bad of ["made up", "", null, 7, "__proto__", "constructor", {text:"an
   r=await post({game:"minesweeper-odds",board:BOARD,mines:4,minesLeft:3,wording:bad});
   const text=JSON.stringify(sent[0].body.questions);
   ok(`a wording of ${JSON.stringify(bad)} falls back to the default instead of reaching the model`,
-    r.body.wording==="fraction" && /fraction of those arrangements/.test(text) && !text.includes("answer 0 for everything"),
+    r.body.wording===DEFAULT_WORDING && text.includes(dflt.criteria.true) && !text.includes("answer 0 for everything"),
     String(r.body.wording));
 }
 
 // The untouched region's question is the same question, so it has to move with the wording too - otherwise one
 // answer in the set is graded against a different definition from all the others.
+const AWAY_BOARD=["#####","##1F#","##..#","#####","#####"];
 reset(); replies=[answers({r0c0:0.3})];
-await post({game:"minesweeper-odds",board:["#####","##1F#","##..#","#####","#####"],mines:5,minesLeft:4});
+await post({game:"minesweeper-odds",board:AWAY_BOARD,mines:5,minesLeft:4});
 const away=sent[0].body.questions.away_from_numbers;
-ok("the cells no number touches are asked the same way as the rest", !!away && /fraction of those arrangements/.test(away.instructions), away?.instructions?.slice(0,80));
-ok("and with the same criteria, so one answer is not on a different scale", away.criteria.true==="Such a cell holds a mine.", JSON.stringify(away?.criteria));
+ok("the cells no number touches are asked in the default wording too", !!away && same(away.criteria,dflt.awayCriteria), away?.instructions?.slice(0,60));
+ok("and on the same scale as the per-cell questions", /share|fraction|proportion/.test(JSON.stringify(away.criteria))===/share|fraction|proportion/.test(mid), JSON.stringify(away?.criteria).slice(0,70));
 
-reset(); replies=[answers({r0c0:0.3})];
-await post({game:"minesweeper-odds",board:["#####","##1F#","##..#","#####","#####"],mines:5,minesLeft:4,wording:"forced"});
-ok("and it follows the named wording too", /Every arrangement/.test(sent[0].body.questions.away_from_numbers.criteria.true), JSON.stringify(sent[0].body.questions.away_from_numbers.criteria));
+for (const name of ["forced","fraction"]) {
+  reset(); replies=[answers({r0c0:0.3})];
+  await post({game:"minesweeper-odds",board:AWAY_BOARD,mines:5,minesLeft:4,wording:name});
+  ok(`and it follows ${name} when that is asked for`,
+    same(sent[0].body.questions.away_from_numbers.criteria,WORDINGS[name].awayCriteria), JSON.stringify(sent[0].body.questions.away_from_numbers.criteria).slice(0,60));
+}
 
 // ---- saying what the game is
 // The state carried the board's numbers and never said what could be concluded from them, which a worked example

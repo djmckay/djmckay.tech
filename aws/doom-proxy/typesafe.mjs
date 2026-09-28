@@ -242,7 +242,15 @@ export const WORDINGS = {
     },
   },
 };
-export const DEFAULT_WORDING = "fraction";
+// `defined`, on the measurement rather than on an argument. All three wordings were run against solver-exact odds
+// on the same six Expert boards: `defined` leads on ranking (Spearman 0.339 against 0.245 for `forced` and 0.235
+// for `fraction`, better on 5 of 6 boards) and takes half the risk per move that `fraction` does - 0.179 against
+// 0.339, where 0.000 was available on every board - finding a provably safe cell on 3 boards of 6 rather than 1.
+//
+// At six boards a sign test separates none of them (best p=0.219), so this is a weak result held honestly: what
+// makes it the right default anyway is that `fraction` was chosen on reasoning alone and never measured, so this
+// trades no evidence for a little. If it is ever worth settling, twenty boards would do it.
+export const DEFAULT_WORDING = "defined";
 
 // The measuring shape: one question per cell, which grows with the frontier but is the only shape whose answers
 // can be checked against the solver cell by cell.
