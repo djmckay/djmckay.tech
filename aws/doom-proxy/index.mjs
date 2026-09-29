@@ -42,9 +42,12 @@ const PRICES = {
   "claude-haiku-4-5-20251001": { in: 1, out: 5 },
   "claude-haiku-4-5": { in: 1, out: 5 },
   "claude-sonnet-5": { in: 2, out: 10 },
+  "claude-opus-5-5": { in: 4, out: 20 },
+  "claude-opus-5": { in: 5, out: 25 },
   "claude-fable-5-1": { in: 10, out: 50 },
 };
-// Sonnet 5 / Opus 5 think adaptively by default, and thinking tokens count toward max_tokens.
+// Sonnet 5 / Opus 5 / Opus 5.5 think adaptively by default, and thinking tokens count toward max_tokens.
+// The opus-5 branch matches claude-opus-5-5 too, which is correct: both think adaptively.
 const thinksAdaptively = (m) => /^claude-(sonnet-5|opus-5)/.test(m);
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 const MS_EFFORT = EFFORTS.includes(process.env.MINESWEEPER_EFFORT) ? process.env.MINESWEEPER_EFFORT : "high";
@@ -67,13 +70,28 @@ const MS_DEFAULT_MOVES = 5;
 
 // Public Minesweeper presets. The page sends names; model IDs and effort values never come from the client.
 // high/xhigh/max are not offered: at high, 2 of 3 mid-game turns hit the 6000-token / 60 s budget in testing.
-const PUBLIC_MODELS = { haiku: "claude-haiku-4-5-20251001", sonnet: "claude-sonnet-5" };
+// Both Opus versions are offered rather than only the newer one, because which of them plays Minesweeper better
+// is a measurable question and 5.5 is not simply 5 with a lower price: it thinks more per turn at a given effort.
+const PUBLIC_MODELS = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-5",
+  opus55: "claude-opus-5-5",
+  opus5: "claude-opus-5",
+};
 const MS_PUBLIC_EFFORTS = ["low", "medium"];
 // Not offered to visitors: Fable costs several times more per call than Sonnet, so only a page served from localhost
 // (an origin that is in ALLOWED_ORIGIN only while testing) may ask for it, and only for the doom-nav game.
 const DEV_MODELS = { fable: "claude-fable-5-1" };
 const FABLE_EFFORTS = ["low", "medium", "high"];
 const isFable = (m) => /^claude-fable-5/.test(m);
+// Opus 5.5 is in Fable's class for the shape of a request, whatever else differs: thinking cannot be turned off
+// (`{type:"disabled"}` and a token budget both 400 at every effort level) and a forced tool call is rejected
+// (`tool_choice` `tool`/`any` 400s, only `auto` and `none` are left). Effort is the only control over how much
+// it thinks. Named for the constraint rather than for the model, because the next model with it is then one
+// entry here instead of a new branch in five places - and because a reader needs to know why, not who.
+// Note the anchor: /^claude-opus-5-5/ must not be written /^claude-opus-5/, which also matches plain Opus 5,
+// where disabled thinking is accepted at effort high or below and a forced tool call is fine.
+const alwaysThinks = (m) => isFable(m) || /^claude-opus-5-5/.test(m);
 const isDevOrigin = () => /^http:\/\/localhost(:\d+)?$/.test(reqOrigin);
 // Picks a public preset from the request: model by name, effort from an allowlist, anything else falls back.
 function presetChoice(input, { defaultModel, efforts, defaultEffort }) {
@@ -325,10 +343,11 @@ const adaptiveExtras = (model, { effort }) =>
 // effect on output tokens). With thinking on, leave tool_choice on auto and let the prompt call the tool.
 const adaptiveToolChoice = (model) => (thinksAdaptively(model) ? { type: "auto" } : undefined);
 // The same request with thinking turned off and the tool forced, so it answers immediately. Used when thinking spent
-// the whole token budget and left no move. null when there is nothing to turn off, or when the model cannot: Fable
-// always thinks and rejects a forced tool call.
+// the whole token budget and left no move. null when there is nothing to turn off, or when the model cannot: a model
+// in the always-thinks class rejects both halves of this retry, so it has no recovery from an overspent budget
+// beyond the effort it was asked at. That is the cost of the class, not something to work around here.
 function withoutThinking(body) {
-  if (body.thinking?.type !== "adaptive" || isFable(body.model)) return null;
+  if (body.thinking?.type !== "adaptive" || alwaysThinks(body.model)) return null;
   const { output_config, ...rest } = body;
   return {
     ...rest,
@@ -343,10 +362,22 @@ const GAMES = {
   doom: {
     choose: doomChoice,
     // Thinking tokens count toward max_tokens, so an answer needs headroom when thinking is on.
-    maxTokens: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? 4000 : 200),
+    // 200 is the no-thinking budget: enough for one tool call and nothing else. A model that always thinks must
+    // never be given it - thinking counts toward max_tokens even though its text is not returned, so 200 would
+    // be spent before the move and the turn would come back empty every time.
+    maxTokens: (model, { effort }) =>
+      (alwaysThinks(model) || (thinksAdaptively(model) && effort !== "off") ? 4000 : 200),
+    // "off" asks for no thinking at all, which a model in the always-thinks class cannot do. The documented
+    // substitute is the lowest effort: it keeps thinking short rather than absent, so the answer still arrives
+    // quickly, and it is the only lever left. Such a model also rejects a forced tool call, so it gets `auto`
+    // whatever the effort - the prompt already names the tool.
     extras: (model, { effort }) =>
-      !thinksAdaptively(model) ? {} : effort === "off" ? { thinking: { type: "disabled" } } : { thinking: { type: "adaptive" }, output_config: { effort } },
-    toolChoice: (model, { effort }) => (thinksAdaptively(model) && effort !== "off" ? { type: "auto" } : undefined),
+      alwaysThinks(model) ? { output_config: { effort: effort === "off" ? "low" : effort } }
+      : !thinksAdaptively(model) ? {}
+      : effort === "off" ? { thinking: { type: "disabled" } }
+      : { thinking: { type: "adaptive" }, output_config: { effort } },
+    toolChoice: (model, { effort }) =>
+      (alwaysThinks(model) || (thinksAdaptively(model) && effort !== "off") ? { type: "auto" } : undefined),
     system: `You are playing DOOM (1993) through a screenshot each turn. Goal: survive, find and kill monsters, explore toward the level exit.
 Controls per turn: one action held for a short time; "repeat" is how long, in tenths of a second (1-8), so a small repeat turns only a little. forward/back move, left/right turn, strafe_left/strafe_right sidestep, fire shoots the equipped weapon, use opens doors and presses switches, enter confirms menu items (use it on title and menu screens), wait does nothing.
 Combat: when an enemy is visible, turn until it is centered in the crosshair, then fire in bursts (repeat 3-6). Keep moving to avoid damage, and walk over health and ammo pickups.
@@ -525,7 +556,12 @@ Think it through, then reply only by calling the review_moves tool.`,
   "minesweeper-review": {
     choose: msChoice,
     maxTokens: 600,
-    extras: (model) => (thinksAdaptively(model) ? { thinking: { type: "disabled" } } : {}),
+    // Writing one lesson from a finished game needs no deliberation, so thinking was turned off here. A model
+    // that cannot turn it off gets the lowest effort instead, and `auto` because it also rejects a forced call.
+    extras: (model) =>
+      alwaysThinks(model) ? { output_config: { effort: "low" } }
+      : thinksAdaptively(model) ? { thinking: { type: "disabled" } } : {},
+    toolChoice: (model) => (alwaysThinks(model) ? { type: "auto" } : undefined),
     system: `${MS_RULES}
 
 You are reviewing a lost Minesweeper game so you play better next time.
@@ -658,9 +694,13 @@ Think it through, then reply only by calling the report tool.`,
 GAMES["doom-nav"] = {
   ...GAMES.doom,
   choose: navChoice,
+  // Fable keeps its measured 5000; every other always-thinks model gets doom's thinking budget plus the same
+  // 100 for the notes field. Kept as isFable rather than alwaysThinks because 5000 was measured for Fable.
   maxTokens: (model, choice) => (isFable(model) ? 5000 : GAMES.doom.maxTokens(model, choice) + 100),
-  extras: (model, choice) => (isFable(model) ? { output_config: { effort: choice.effort } } : GAMES.doom.extras(model, choice)),
-  toolChoice: (model, choice) => (isFable(model) ? { type: "auto" } : GAMES.doom.toolChoice(model, choice)),
+  // doom's own extras now handle the always-thinks class, so this defers to them rather than special-casing
+  // Fable a second time. The effort it passes through is already allowlisted by the caller.
+  extras: (model, choice) => GAMES.doom.extras(model, choice),
+  toolChoice: (model, choice) => GAMES.doom.toolChoice(model, choice),
   system: (input) => navSystem(navFlags(input)),
   tool: {
     name: "act",
@@ -895,6 +935,19 @@ export const handler = async (event) => {
   let data = res ? await res.json() : { stop_reason: "max_tokens", content: [] }; // a dropped call counts as out of room
   let inputTokens = data.usage?.input_tokens ?? 0;
   let outputTokens = data.usage?.output_tokens ?? 0;
+  // A safety classifier can decline a request, and it arrives as a normal 200 with no tool call rather than as an
+  // error. Checked before the content is read, because otherwise it lands in "no usable action" below and gets
+  // reported as a thinking-budget problem - a wrong diagnosis that would send someone tuning token limits.
+  // Opus 5.5 runs a wider set of these than Sonnet does, so the case stops being hypothetical once it is offered.
+  //
+  // Deliberately not paired with a server-side fallback, which the migration guide otherwise recommends enabling.
+  // A fallback answers on a different model, and this proxy exists to attribute a game's outcome to the model that
+  // was chosen: a silent substitution would record another model's move under Sonnet's or Opus's name on the public
+  // results page. A declined turn is rare, visible and recoverable; a corrupted result is neither.
+  if (data.stop_reason === "refusal") {
+    console.error("declined", size(input), model, data.stop_details?.category ?? "unknown");
+    return reply(502, { error: "declined", category: typeof data.stop_details?.category === "string" ? data.stop_details.category : null });
+  }
   const readMove = () => {
     const call = data.content?.find((b) => b.type === "tool_use")?.input;
     return { call, out: call && game.result(call, input) };

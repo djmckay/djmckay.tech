@@ -39,8 +39,11 @@ Parameters:
     Description: Default thinking effort when a request does not choose one. high hit the 6000-token / 60 s limit in testing; the public presets only offer low and medium
   MinesweeperModel:
     Type: String
-    Default: claude-sonnet-5
-    Description: Model for Minesweeper and its post-mortems (Doom uses Model)
+    Default: claude-opus-5-5
+    Description: >-
+      Model for Minesweeper and its post-mortems (Doom uses Model). Opus 5.5 costs twice what Sonnet 5 does per
+      token, so an Expert game runs past the 6 dollar per-game budget and stops around turn 70, and two of them
+      exhaust DailyUsdCap. Set to claude-sonnet-5 to put that back, or raise both caps to let a game finish.
 
 Conditions:
   HasTypesafeSecret: !Not [!Equals [!Ref TypesafeSecretName, ""]]

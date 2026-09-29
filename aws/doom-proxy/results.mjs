@@ -11,7 +11,11 @@ export const RESULT_LEVELS = {
   intermediate: { rows: 16, cols: 16, mines: 40, maxMoves: 10, maxCalls: 60, budgetUsd: 2 },
   expert: { rows: 16, cols: 30, mines: 99, maxMoves: 15, maxCalls: 80, budgetUsd: 3 },
 };
-const MODELS = ["haiku", "sonnet"];
+// The names the page sends, not model IDs. Added to rather than replaced: the sort key includes the model, so
+// each name owns its own aggregate row and every game already counted under haiku or sonnet stays where it is.
+// A name missing from here is not a validation error the caller sees - parseResult returns null and the finished
+// game is silently never counted, so this list has to grow whenever the page offers another model.
+const MODELS = ["haiku", "sonnet", "opus55", "opus5"];
 const EFFORTS = ["low", "medium"];
 const OUTCOMES = ["won", "lost", "stopped"];
 const VERSION = /^[A-Za-z0-9._-]{1,20}$/;
