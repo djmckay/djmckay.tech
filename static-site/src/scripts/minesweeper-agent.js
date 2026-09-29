@@ -17,7 +17,9 @@
     // inside the 80-turn cap.
     expert:       { label: "Expert (30×16, 99 mines)",       rows: 16, cols: 30, mines: 99, maxMoves: 15, maxCalls: 80, budgetUsd: 6, cellPx: 22, fontRem: 0.8 },
   };
-  const MODELS = ["haiku", "sonnet"]; // names only; the proxy maps them to model IDs
+  const MODELS = ["haiku", "sonnet", "opus55", "opus5"]; // names only; the proxy maps them to model IDs
+  // For the hint line, so a model added here does not get labelled as whatever the previous default was.
+  const NAMES = { haiku: "Haiku", sonnet: "Sonnet", opus55: "Opus 5.5", opus5: "Opus 5" };
   const EFFORTS = ["low", "medium"];
   const DEFAULTS = { level: "beginner", model: "sonnet", effort: "low", verifier: false, vModel: "sonnet", vEffort: "low" };
   const SETTINGS_KEY = "ms-settings-v1";
@@ -171,8 +173,15 @@
     haiku: "Haiku: about 10 seconds and under a cent per Beginner game, but it lost all 5 test games.",
     "sonnet-low": "Sonnet, low effort: 2-5 minutes and about 20 cents per Beginner game; it won 4 of 5 test games.",
     "sonnet-medium": "Sonnet, medium effort: 2-5 minutes and about 20 cents per Beginner game; it won 2 of 3 test games.",
+    // Opus has not been measured on this game, so these say what it costs rather than how well it does - the
+    // honest thing to put in front of someone about to spend it.
+    "opus55-low": "Opus 5.5: twice Sonnet's price per token, and it thinks more per turn, so expect well over twice the cost. An Expert game runs past its $6 budget and stops early. How well it plays here has not been measured.",
+    "opus55-medium": "Opus 5.5 at medium effort: twice Sonnet's price per token and more thinking per turn again, so the dearest setting offered. An Expert game will stop at its budget. Not yet measured on this game.",
+    "opus5-low": "Opus 5: 25% dearer per token than Opus 5.5 and a generation behind it. Offered to compare the two on the same boards.",
+    "opus5-medium": "Opus 5 at medium effort: 25% dearer per token than Opus 5.5, for comparing the two at the same effort.",
   };
-  const hintFor = (model, effort) => HINTS[model === "haiku" ? "haiku" : `sonnet-${effort}`];
+  // A pair with no entry returns undefined, which renders as an empty hint rather than throwing.
+  const hintFor = (model, effort) => HINTS[model === "haiku" ? "haiku" : `${model}-${effort}`];
 
   function renderSettings() {
     $("ms-level").value = settings.level;
@@ -187,7 +196,7 @@
     for (const id of ["ms-level", "ms-model", "ms-verify", "ms-vmodel"]) $(id).disabled = running;
     const parts = [hintFor(settings.model, settings.effort)];
     if (settings.verifier) {
-      parts.push(`Verifier (${settings.vModel === "haiku" ? "Haiku" : `Sonnet, ${settings.vEffort}`}) adds a Claude call per turn, and a revision when it objects. In test games it caught many bad moves, but a Haiku player with a Sonnet verifier still lost all 6.`);
+      parts.push(`Verifier (${settings.vModel === "haiku" ? "Haiku" : `${NAMES[settings.vModel] || settings.vModel}, ${settings.vEffort}`}) adds a Claude call per turn, and a revision when it objects. In test games it caught many bad moves, but a Haiku player with a Sonnet verifier still lost all 6.`);
     }
     if (settings.level !== "beginner") parts.push("Intermediate and Expert run far longer and cost much more; Claude has yet to finish an Expert board, and a game may stop at its budget before the board is done. The live results page has the current numbers.");
     $("ms-hint").textContent = parts.join(" ");

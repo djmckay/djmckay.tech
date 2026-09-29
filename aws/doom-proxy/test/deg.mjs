@@ -44,4 +44,19 @@ for (const v of [-1, 1.5, "1", {}, NaN]) ok(`degradedChecks ${JSON.stringify(v)}
   ok("stats expose the referee share", sh.degradedChecks === 1 && sh.degraded === 2);
 }
 
+// ---- the model names the recorder will accept
+// This list is the one place a new player model fails silently rather than loudly: parseResult returns null, the
+// page gets no error because it does not read the reply, and the finished game is simply never counted. So each
+// name the page can send is asserted here, and an unknown one is asserted to still be refused.
+for (const m of ["haiku", "sonnet", "opus55", "opus5"]) {
+  ok(`a game played by ${m} is counted`, p({ model: m, effort: "low" })?.model === m, JSON.stringify(p({ model: m, effort: "low" })?.model));
+}
+for (const m of ["opus", "opus5-5", "claude-opus-5-5", "OPUS55", "", null, 5, {}]) {
+  ok(`a game claiming model ${JSON.stringify(m)} is refused`, p({ model: m }) === null);
+}
+// The model is part of the sort key, so a new name opens its own row and leaves every counted game alone.
+const skOf = (m) => updateInput("t", p({ model: m, effort: "low" }), "2026-09-28T00:00:00Z").Key.sk.S;
+ok("each model keeps its own aggregate row", skOf("opus55").includes("#opus55#"), skOf("opus55"));
+ok("and does not collide with sonnet's", skOf("sonnet") !== skOf("opus55"), `${skOf("sonnet")} vs ${skOf("opus55")}`);
+
 console.log(`\n${pass} passed, ${fail} failed`);

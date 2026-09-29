@@ -128,4 +128,60 @@ reset(); replies=[played()];
 await post({game:"minesweeper",board:BOARD,mines:10,format:"json"},"https://djmckay.tech");
 ok("the live site still cannot ask for json", !/adjacentMines/.test(textOf()) && /row,col,value/.test(textOf()));
 
+// ---- a flag is the player's guess, not evidence
+// An Expert game was lost to this. The player flagged (6,12) on a chain of deductions, the referee approved the
+// flag, and three turns later the player argued "7,13=2 is satisfied by two flags, so its other neighbours are
+// safe" and revealed a mine. The referee approved that too, saying so in as many words: "provably correct based
+// on constraint propagation from revealed numbers and flags". (6,12) held no mine. The solver's verdict was that
+// a provably safe cell existed elsewhere, so the guess was not even necessary.
+//
+// The referee could not catch it because its own instructions told it to judge "from the visible numbers and
+// flags", which makes a wrong flag a false premise both agents share - and two reads of the same false premise
+// agree. The solver never had this problem: it counts F as unknown, like any other unopened cell.
+const FLAGGY=["#F1##","#2F##","##1##"];
+const proposal=(moves,thought="x")=>({moves,thought});
+const verify=(b,moves,thought)=>post({game:"minesweeper-verify",board:b,mines:5,minesLeft:3,proposed:proposal(moves,thought)});
+
+reset(); replies=[{body:{stop_reason:"tool_use",content:[{type:"tool_use",input:{verdicts:[{index:0,verdict:"unproven",reason:"r"}],note:"n"}}],usage:{input_tokens:5,output_tokens:5}}}];
+await verify(FLAGGY,[{action:"reveal",row:0,col:3}],"7,13=2 is satisfied by its two flags so the rest are safe");
+const ref=sent[0].system;
+ok("the referee is told a flag is the player's guess and may be wrong", /flag is the player's earlier guess, not a fact/.test(ref), ref.slice(0,0));
+ok("and to treat an F exactly as a #", /treat an F exactly as you would a #/.test(ref));
+ok("and specifically to refuse the argument that lost the game",
+  /never accept "this number's flags account for all its mines, so its other neighbours are safe"/.test(ref));
+ok("and that surrounding flags cannot make a cell proven", /unproven however many flags surround it/.test(ref));
+ok("approval now rests on the revealed numbers and the mine count alone",
+  /from the revealed numbers and the mine count alone/.test(ref) && !/from the visible numbers and flags/.test(ref));
+ok("the referee is no longer told to judge from the flags", !/using only the visible board \(numbers, flags/.test(ref));
+
+// The count it is given must not be derived from the flags either, or the assumption comes back by another route.
+const refText=sent[0].messages[0].content.map((c)=>c.text||"").join("\n");
+ok("the referee is given the total mines and where they must be, not a flag-derived remainder",
+  /Total mines: 5, and every one of them is in one of the \d+ unopened cells/.test(refText), refText.split("\n").find((l)=>/Total mines/.test(l)));
+ok("and is told the flagged cells count among them", /the F cells as much as the # ones/.test(refText));
+ok("\"Mines not yet flagged\" is not put in front of the referee", !/Mines not yet flagged/.test(refText), refText.split("\n").find((l)=>/not yet flagged/.test(l)) || "absent");
+// 15 cells on this board, none revealed as opened except the numbers: # and F together.
+const unopened=FLAGGY.join("").split("").filter((c)=>c==="#"||c==="F").length;
+ok("the unopened count it is given is right", new RegExp(`one of the ${unopened} unopened cells`).test(refText), String(unopened));
+reset(); replies=[{body:{stop_reason:"tool_use",content:[{type:"tool_use",input:{verdicts:[{index:0,verdict:"unproven",reason:"r"}],note:"n"}}],usage:{input_tokens:5,output_tokens:5}}}];
+await post({game:"minesweeper-verify",board:FLAGGY,proposed:proposal([{action:"reveal",row:0,col:3}])});
+ok("with no mine total, the referee is told so rather than given a wrong one",
+  /The total number of mines is not known/.test(sent[0].messages[0].content.map((c)=>c.text||"").join("\n")));
+
+// The player still flags - it is how it tracks deductions and it drives the mines-remaining count - but is told
+// what a flag is worth, which matters most on a game run with no referee behind it.
+reset(); replies=[played()];
+await post({game:"minesweeper",board:FLAGGY,mines:5,minesLeft:3});
+const play=sent[0].system;
+ok("the player is told a flag is its own conclusion, not something the board said",
+  /A flag is your own earlier conclusion, not something the board told you/.test(play));
+ok("and that the flags-satisfied rule depends on every one of them being right",
+  /only holds if every one of those flags is right/.test(play));
+ok("and to unflag one it cannot stand behind", /unflag it/.test(play));
+ok("and what one wrong flag costs for the rest of the game",
+  /every number touching it mislead you for the rest of the game/.test(play));
+ok("the player keeps the rules of thumb that make it able to play", /if a number equals the count of hidden plus flagged neighbors/.test(play));
+ok("the player still gets the flag-based remainder, which is what it plays against",
+  /Mines not yet flagged: 3/.test(sent[0].messages[0].content.map((c)=>c.text||"").join("\n")));
+
 console.log(`\n${pass} passed, ${fail} failed`);
